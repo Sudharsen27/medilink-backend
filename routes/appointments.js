@@ -4,21 +4,33 @@ const pool = require('../db');
 const verifyAdmin = require('../middleware/admin');
 const verifyToken = require('../middleware/auth');
 
-// Create appointment (any logged-in user)
+// Create appointment (logged-in user)
 router.post('/', verifyToken, async (req, res) => {
-  const { name, email, date } = req.body;
-  if (!name || !email || !date)
-    return res.status(400).json({ error: "All fields are required" });
+  const { date } = req.body;
+  if (!date) return res.status(400).json({ error: "Date is required" });
 
   try {
-    const result = await pool.query(
-      'INSERT INTO appointments (name, email, date) VALUES ($1, $2, $3) RETURNING *',
-      [name, email, date]
+    // fetch user's name + email from users table
+    const userResult = await pool.query(
+      'SELECT name, email FROM users WHERE id = $1',
+      [req.user.id]
     );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const { name, email } = userResult.rows[0];
+
+    const result = await pool.query(
+      'INSERT INTO appointments (name, email, date, user_id) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, email, date, req.user.id]
+    );
+
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Database error" });
+    console.error('Error creating appointment:', err);
+    res.status(500).json({ error: "Database error while creating appointment" });
   }
 });
 
@@ -26,24 +38,24 @@ router.post('/', verifyToken, async (req, res) => {
 router.get('/', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM appointments WHERE email = $1 ORDER BY id ASC',
-      [req.user.email]
+      'SELECT * FROM appointments WHERE user_id = $1 ORDER BY id ASC',
+      [req.user.id]
     );
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Database error" });
+    console.error('Error fetching user appointments:', err);
+    res.status(500).json({ error: "Database error while fetching appointments" });
   }
 });
 
 // Admin: view all appointments
-router.get('/all', verifyAdmin, async (req, res) => {
+router.get('/all', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM appointments ORDER BY id ASC');
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Database error" });
+    console.error('Error fetching all appointments:', err);
+    res.status(500).json({ error: "Database error while fetching all appointments" });
   }
 });
 
