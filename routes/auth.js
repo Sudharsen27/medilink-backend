@@ -4,15 +4,25 @@ const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const nodemailer = require("nodemailer");
 
 // ✅ Helper to generate JWT
 function generateToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role }, // include email + role
+    { id: user.id, email: user.email, role: user.role }, 
     process.env.JWT_SECRET,
     { expiresIn: '1d' }
   );
 }
+
+// ✅ Nodemailer transporter (Gmail + App Password)
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 // ✅ Register new user
 router.post('/register', async (req, res) => {
@@ -28,7 +38,7 @@ router.post('/register', async (req, res) => {
     // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // role defaults to "user"
+    // insert user
     const result = await pool.query(
       'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
       [name, email, hashedPassword, role || 'user']
@@ -36,6 +46,14 @@ router.post('/register', async (req, res) => {
 
     const user = result.rows[0];
     const token = generateToken(user);
+
+    // ✅ Send welcome email
+    await transporter.sendMail({
+      from: `"Medilink App" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "Welcome to Medilink 🎉",
+      text: `Hi ${user.name}, welcome to Medilink! Your account has been created successfully.`,
+    });
 
     res.status(201).json({
       token,
