@@ -1,152 +1,3 @@
-// const express = require("express");
-// const router = express.Router();
-// const pool = require("../db");
-// const verifyAdmin = require("../middleware/admin");
-// const verifyToken = require("../middleware/auth");
-
-// // =======================
-// // Create appointment (logged-in user)
-// // =======================
-// router.post("/", verifyToken, async (req, res) => {
-//   const { date } = req.body;
-//   if (!date) return res.status(400).json({ error: "Date is required" });
-
-//   try {
-//     // fetch user's name + email
-//     const userResult = await pool.query(
-//       "SELECT name, email FROM users WHERE id = $1",
-//       [req.user.id]
-//     );
-
-//     if (userResult.rows.length === 0) {
-//       return res.status(404).json({ error: "User not found" });
-//     }
-
-//     const { name, email } = userResult.rows[0];
-
-//     const result = await pool.query(
-//       `INSERT INTO appointments (name, email, date, status, user_id) 
-//        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-//       [name, email, date, "pending", req.user.id]
-//     );
-
-//     res.json(result.rows[0]);
-//   } catch (err) {
-//     console.error("Error creating appointment:", err);
-//     res.status(500).json({ error: "Database error while creating appointment" });
-//   }
-// });
-
-// // =======================
-// // Get appointments of logged-in user
-// // =======================
-// router.get("/", verifyToken, async (req, res) => {
-//   try {
-//     const result = await pool.query(
-//       "SELECT * FROM appointments WHERE user_id = $1 ORDER BY id DESC",
-//       [req.user.id]
-//     );
-//     res.json(result.rows);
-//   } catch (err) {
-//     console.error("Error fetching user appointments:", err);
-//     res.status(500).json({ error: "Database error while fetching appointments" });
-//   }
-// });
-
-// // =======================
-// // Admin: get all appointments
-// // =======================
-// router.get("/all", verifyToken, verifyAdmin, async (req, res) => {
-//   try {
-//     const result = await pool.query("SELECT * FROM appointments ORDER BY id DESC");
-//     res.json(result.rows);
-//   } catch (err) {
-//     console.error("Error fetching all appointments:", err);
-//     res.status(500).json({ error: "Database error while fetching all appointments" });
-//   }
-// });
-
-// // =======================
-// // Update appointment (user can edit their own)
-// // =======================
-// router.put("/:id", verifyToken, async (req, res) => {
-//   const { date } = req.body;
-
-//   try {
-//     const result = await pool.query(
-//       `UPDATE appointments 
-//        SET date = $1
-//        WHERE id = $2 AND user_id = $3
-//        RETURNING *`,
-//       [date, req.params.id, req.user.id]
-//     );
-
-//     if (result.rows.length === 0) {
-//       return res
-//         .status(404)
-//         .json({ error: "Appointment not found or not yours" });
-//     }
-
-//     res.json(result.rows[0]);
-//   } catch (err) {
-//     console.error("Error updating appointment:", err);
-//     res.status(500).json({ error: "Database error while updating appointment" });
-//   }
-// });
-
-// // =======================
-// // Delete appointment (user can delete their own)
-// // =======================
-// router.delete("/:id", verifyToken, async (req, res) => {
-//   try {
-//     const result = await pool.query(
-//       "DELETE FROM appointments WHERE id = $1 AND user_id = $2 RETURNING *",
-//       [req.params.id, req.user.id]
-//     );
-
-//     if (result.rows.length === 0) {
-//       return res
-//         .status(404)
-//         .json({ error: "Appointment not found or not yours" });
-//     }
-
-//     res.json({ success: true, deleted: result.rows[0] });
-//   } catch (err) {
-//     console.error("Error deleting appointment:", err);
-//     res.status(500).json({ error: "Database error while deleting appointment" });
-//   }
-// });
-
-// // =======================
-// // Update appointment status (admin only)
-// // =======================
-// router.patch("/:id/status", verifyToken, verifyAdmin, async (req, res) => {
-//   const { status } = req.body;
-//   const validStatuses = ["pending", "confirmed", "cancelled"];
-
-//   if (!validStatuses.includes(status)) {
-//     return res.status(400).json({ error: "Invalid status" });
-//   }
-
-//   try {
-//     const result = await pool.query(
-//       "UPDATE appointments SET status = $1 WHERE id = $2 RETURNING *",
-//       [status, req.params.id]
-//     );
-
-//     if (result.rows.length === 0) {
-//       return res.status(404).json({ error: "Appointment not found" });
-//     }
-
-//     res.json(result.rows[0]);
-//   } catch (err) {
-//     console.error("Error updating appointment status:", err);
-//     res.status(500).json({ error: "Database error while updating status" });
-//   }
-// });
-
-// module.exports = router;
-
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
@@ -169,7 +20,7 @@ const transporter = nodemailer.createTransport({
 // Create appointment (logged-in user)
 // =======================
 router.post("/", verifyToken, async (req, res) => {
-  const { date, time, doctorName, patientName, patientPhone, whatsappOptIn } = req.body;
+  const { date, time, doctorName, patientName, patientPhone } = req.body;
   if (!date || !time || !doctorName || !patientName || !patientPhone) {
     return res.status(400).json({ error: "All fields are required" });
   }
@@ -197,20 +48,20 @@ router.post("/", verifyToken, async (req, res) => {
 
     const appointment = result.rows[0];
 
-    // ✅ Send confirmation email to user
+    // Send confirmation email to user
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: "✅ Appointment Confirmation",
-      text: `Hello ${name},\n\nYour appointment with Dr. ${doctorName} has been booked.\n\n📅 Date: ${date}\n⏰ Time: ${time}\n\nWe will remind you before the appointment.`,
+      text: `Hello ${name},\n\nYour appointment with Dr. ${doctorName} has been booked.\n📅 Date: ${date}\n⏰ Time: ${time}\n\nWe will remind you before the appointment.`,
     });
 
-    // ✅ Send notification email to client
+    // Send notification email to admin/client
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
-      to: process.env.CLIENT_EMAIL, // your email
+      to: process.env.CLIENT_EMAIL,
       subject: "📢 New Appointment Booked",
-      text: `A new appointment has been booked:\n\n👤 Patient: ${patientName}\n📞 Phone: ${patientPhone}\n👨‍⚕️ Doctor: ${doctorName}\n📅 Date: ${date}\n⏰ Time: ${time}\n\nBooked by user: ${name} (${email})`,
+      text: `A new appointment has been booked:\n👤 Patient: ${patientName}\n📞 Phone: ${patientPhone}\n👨‍⚕️ Doctor: ${doctorName}\n📅 Date: ${date}\n⏰ Time: ${time}\nBooked by user: ${name} (${email})`,
     });
 
     res.json(appointment);
@@ -254,7 +105,6 @@ router.get("/all", verifyToken, verifyAdmin, async (req, res) => {
 // =======================
 router.put("/:id", verifyToken, async (req, res) => {
   const { date, time } = req.body;
-
   try {
     const result = await pool.query(
       `UPDATE appointments 
@@ -297,7 +147,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
 });
 
 // =======================
-// Update appointment status (admin only)
+// Update appointment status (admin only + send email with formatted date)
 // =======================
 router.patch("/:id/status", verifyToken, verifyAdmin, async (req, res) => {
   const { status } = req.body;
@@ -317,7 +167,35 @@ router.patch("/:id/status", verifyToken, verifyAdmin, async (req, res) => {
       return res.status(404).json({ error: "Appointment not found" });
     }
 
-    res.json(result.rows[0]);
+    const appointment = result.rows[0];
+
+    // Fetch user's info for email notification
+    const userResult = await pool.query(
+      "SELECT name, email FROM users WHERE id = $1",
+      [appointment.user_id]
+    );
+
+    if (userResult.rows.length > 0) {
+      const { name, email } = userResult.rows[0];
+
+      // Format date nicely for email
+      const formattedDate = new Date(appointment.date).toLocaleDateString("en-IN", {
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+
+      // Send email about status change
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: `📢 Your appointment status is now "${status}"`,
+        text: `Hello ${name},\n\nYour appointment with Dr. ${appointment.doctor_name} on ${formattedDate} at ${appointment.time} is now "${status}".\n\nThank you.`,
+      });
+    }
+
+    res.json(appointment);
   } catch (err) {
     console.error("Error updating appointment status:", err);
     res.status(500).json({ error: "Database error while updating status" });
