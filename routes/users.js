@@ -1,7 +1,7 @@
 // routes/users.js
 const express = require('express');
 const router = express.Router();
-const pool = require('../db'); // Make sure db.js is set up for PostgreSQL
+const pool = require('../config/db'); // Make sure db.js is set up for PostgreSQL
 
 // ✅ Get user by ID
 router.get('/:id', async (req, res) => {
