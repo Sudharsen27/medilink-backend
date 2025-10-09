@@ -7,8 +7,7 @@ const appointmentRoutes = require('./routes/appointments');
 const usersRoutes = require('./routes/users');
 const dashboardRoutes = require('./routes/dashboard');
 const doctorsRouter = require('./routes/doctors');
-// const chatRoutes = require('./routes/chat');
-// ✅ Import WhatsApp Reminder Scheduler (destructured)
+
 const { startReminderScheduler } = require('./reminderScheduler');
 
 const app = express();
@@ -24,7 +23,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/doctors', doctorsRouter);
-// app.use('/api/chat', chatRoutes);
+
 
 // Start server
 app.listen(PORT, () => {
