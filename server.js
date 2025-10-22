@@ -13,7 +13,7 @@ const { startReminderScheduler } = require('./reminderScheduler');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Middlewares
 app.use(cors());
 app.use(express.json());
 
