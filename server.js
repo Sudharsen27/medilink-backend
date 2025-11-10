@@ -11,6 +11,7 @@ const usersRoutes = require('./routes/users');
 const dashboardRoutes = require('./routes/dashboard');
 const doctorsRouter = require('./routes/doctors');
 const healthRoute = require('./routes/health'); // ✅ Added health route
+const favoritesRoutes = require('./routes/favorites');
 
 // ==========================
 // ✅ Scheduler Import
@@ -25,6 +26,7 @@ const PORT = process.env.PORT || 5000;
 // ==========================
 app.use(cors());
 app.use(express.json());
+app.use('/api/favorites', favoritesRoutes);
 
 // ✅ Serve uploaded images
 app.use('/uploads', express.static('uploads'));
