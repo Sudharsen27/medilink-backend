@@ -12,6 +12,8 @@ const dashboardRoutes = require('./routes/dashboard');
 const doctorsRouter = require('./routes/doctors');
 const healthRoute = require('./routes/health'); // ✅ Added health route
 const favoritesRoutes = require('./routes/favorites');
+const prescriptionsRoutes = require('./routes/prescriptions');
+const medicalRecordsRoutes = require('./routes/medicalRecords');
 
 // ==========================
 // ✅ Scheduler Import
@@ -39,6 +41,8 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/doctors', doctorsRouter);
+app.use('/api/prescriptions', prescriptionsRoutes);
+app.use('/api/medical-records', medicalRecordsRoutes);
 
 // ✅ Add Health Check Route
 app.use('/health', healthRoute);
