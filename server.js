@@ -105,6 +105,7 @@ const medicalRecordsRoutes = require('./routes/medicalRecords');
 const notificationsRoutes = require('./routes/notifications');
 const patientProfileRoutes = require('./routes/patientProfile');
 const patientRoutes = require('./routes/patientRoutes');
+const emergencyRoutes = require('./routes/emergency');
 
 // ==========================
 // ⏰ Scheduler
@@ -145,6 +146,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/health', healthRoutes);
 app.use('/api/patient', patientProfileRoutes);
 app.use('/api/patients', patientRoutes);
+app.use('/api/emergency', emergencyRoutes);
 
 // ==========================
 // 🌐 Create HTTP Server (Required for WebSockets)
