@@ -172,6 +172,117 @@
 //   startReminderScheduler();
 // });
 
+// const express = require("express");
+// const cors = require("cors");
+// const http = require("http");
+// const path = require("path");
+// require("dotenv").config();
+
+// // ==========================
+// // 🚀 Route Imports
+// // ==========================
+// const authRoutes = require("./routes/auth");
+// const appointmentRoutes = require("./routes/appointments");
+// const usersRoutes = require("./routes/users");
+// const dashboardRoutes = require("./routes/dashboard");
+// const doctorsRoutes = require("./routes/doctors");
+// const healthRoutes = require("./routes/health");
+// const favoritesRoutes = require("./routes/favorites");
+// const prescriptionsRoutes = require("./routes/prescriptions");
+// const medicalRecordsRoutes = require("./routes/medicalRecords");
+// const notificationsRoutes = require("./routes/notifications");
+// const patientProfileRoutes = require("./routes/patientProfile");
+// const patientRoutes = require("./routes/patientRoutes");
+// const emergencyRoutes = require("./routes/emergency");
+
+// // ==========================
+// // ⏰ Scheduler
+// // ==========================
+// const { startReminderScheduler } = require("./reminderScheduler");
+
+// // ==========================
+// // 🔔 WebSocket Server
+// // ==========================
+// const NotificationWebSocketServer = require("./websocket/server");
+
+// const app = express();
+// const PORT = process.env.PORT || 5000;
+
+// /* ==========================
+//    🔧 Global Middlewares
+// ========================== */
+// app.use(
+//   cors({
+//     origin: [
+//       "https://d332c478.medilink-frontendapp.pages.dev",
+//       "http://localhost:3000",
+//     ],
+//     credentials: true,
+//   })
+// );
+
+// app.use(express.json({ limit: "10mb" }));
+// app.use(express.urlencoded({ extended: true }));
+
+// /* ==========================
+//    📁 Static Uploads Directory
+// ========================== */
+// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// /* ==========================
+//    ✅ Health Check (Railway)
+// ========================== */
+// app.get("/api/health", (req, res) => {
+//   res.status(200).json({
+//     status: "ok",
+//     service: "medilink-backend",
+//     time: new Date().toISOString(),
+//   });
+// });
+
+// /* ==========================
+//    📌 API Routes
+// ========================== */
+// app.use("/api/auth", authRoutes);
+// app.use("/api/appointments", appointmentRoutes);
+// app.use("/api/users", usersRoutes);
+// app.use("/api/dashboard", dashboardRoutes);
+// app.use("/api/doctors", doctorsRoutes);
+// app.use("/api/favorites", favoritesRoutes);
+// app.use("/api/prescriptions", prescriptionsRoutes);
+// app.use("/api/medical-records", medicalRecordsRoutes);
+// app.use("/api/notifications", notificationsRoutes);
+// app.use("/health", healthRoutes);
+// app.use("/api/patient", patientProfileRoutes);
+// app.use("/api/patients", patientRoutes);
+// app.use("/api/emergency", emergencyRoutes);
+
+// /* ==========================
+//    🌐 HTTP Server (WebSockets)
+// ========================== */
+// const server = http.createServer(app);
+
+// /* ==========================
+//    🔔 Initialize WebSocket
+// ========================== */
+// const notificationWSS = new NotificationWebSocketServer(server);
+// app.set("notificationWSS", notificationWSS);
+
+// /* ==========================
+//    🚀 Start Server
+// ========================== */
+// server.listen(PORT, () => {
+//   console.log(`✅ Backend running on port ${PORT}`);
+//   console.log(`📡 WebSocket server active`);
+//   console.log(`🔔 Notifications ready`);
+
+//   // ✅ Run scheduler only in production (Railway safe)
+//   if (process.env.NODE_ENV === "production") {
+//     startReminderScheduler();
+//   }
+// });
+
+
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -186,7 +297,6 @@ const appointmentRoutes = require("./routes/appointments");
 const usersRoutes = require("./routes/users");
 const dashboardRoutes = require("./routes/dashboard");
 const doctorsRoutes = require("./routes/doctors");
-const healthRoutes = require("./routes/health");
 const favoritesRoutes = require("./routes/favorites");
 const prescriptionsRoutes = require("./routes/prescriptions");
 const medicalRecordsRoutes = require("./routes/medicalRecords");
@@ -230,12 +340,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 /* ==========================
-   ✅ Health Check (Railway)
+   ✅ HEALTH CHECK (VERY IMPORTANT)
 ========================== */
 app.get("/api/health", (req, res) => {
   res.status(200).json({
-    status: "ok",
-    service: "medilink-backend",
+    success: true,
+    message: "Backend is healthy ✅",
     time: new Date().toISOString(),
   });
 });
@@ -252,7 +362,6 @@ app.use("/api/favorites", favoritesRoutes);
 app.use("/api/prescriptions", prescriptionsRoutes);
 app.use("/api/medical-records", medicalRecordsRoutes);
 app.use("/api/notifications", notificationsRoutes);
-app.use("/health", healthRoutes);
 app.use("/api/patient", patientProfileRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/emergency", emergencyRoutes);
@@ -276,7 +385,6 @@ server.listen(PORT, () => {
   console.log(`📡 WebSocket server active`);
   console.log(`🔔 Notifications ready`);
 
-  // ✅ Run scheduler only in production (Railway safe)
   if (process.env.NODE_ENV === "production") {
     startReminderScheduler();
   }
