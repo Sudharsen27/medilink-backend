@@ -1,395 +1,5 @@
 
 
-// const express = require('express');
-// const cors = require('cors');
-// const http = require('http'); // ✅ Needed for WebSocket binding
-// require('dotenv').config();
-
-// // ==========================
-// // ✅ Route Imports
-// // ==========================
-// const authRoutes = require('./routes/auth');
-// const appointmentRoutes = require('./routes/appointments');
-// const usersRoutes = require('./routes/users');
-// const dashboardRoutes = require('./routes/dashboard');
-// const doctorsRouter = require('./routes/doctors');
-// const healthRoute = require('./routes/health'); 
-// const favoritesRoutes = require('./routes/favorites');
-// const prescriptionsRoutes = require('./routes/prescriptions');
-// const medicalRecordsRoutes = require('./routes/medicalRecords');
-// const notificationsRoutes = require('./routes/notifications'); // ✅ ADDED MISSING IMPORT
-
-// // ==========================
-// // ✅ Scheduler
-// // ==========================
-// const { startReminderScheduler } = require('./reminderScheduler');
-
-// // ==========================
-// // ✅ WebSocket Notification Server
-// // ==========================
-// const NotificationWebSocketServer = require('./websocket/server'); // ⭐ NEW IMPORT
-
-// const app = express();
-// const PORT = process.env.PORT || 5000;
-
-// // ==========================
-// // ✅ Middlewares
-// // ==========================
-// app.use(cors());
-// app.use(express.json());
-// app.use('/api/favorites', favoritesRoutes);
-
-// // Serve uploaded images
-// app.use('/uploads', express.static('uploads'));
-
-// // ==========================
-// // ✅ API Routes
-// // ==========================
-// app.use('/api/auth', authRoutes);
-// app.use('/api/appointments', appointmentRoutes);
-// app.use('/api/users', usersRoutes);
-// app.use('/api/dashboard', dashboardRoutes);
-// app.use('/api/doctors', doctorsRouter);
-// app.use('/api/prescriptions', prescriptionsRoutes);
-// app.use('/api/medical-records', medicalRecordsRoutes);
-// app.use('/api/notifications', notificationsRoutes); // ✅ ADDED MISSING ROUTE
-
-// // Health check route
-// app.use('/health', healthRoute);
-
-// // ==========================
-// // ⭐ IMPORTANT: Create HTTP Server
-// // WebSockets cannot attach to `app.listen`
-// // ==========================
-// const server = http.createServer(app);
-
-// // ==========================
-// // ⭐ Initialize WebSocket Server
-// // ==========================
-// const notificationWSS = new NotificationWebSocketServer(server);
-
-// // Make WebSocket server accessible inside Express route handlers
-// app.set('notificationWSS', notificationWSS);
-
-// // ==========================
-// // 🚀 Start Express + WebSocket Server
-// // ==========================
-// server.listen(PORT, () => {
-//   console.log(`✅ Server running at http://localhost:${PORT}`);
-//   console.log(`📡 WebSocket server running on same port`);
-//   console.log(`🔔 Notifications API available at /api/notifications`); // ✅ ADDED LOG
-
-//   // Start WhatsApp Reminder Scheduler
-//   startReminderScheduler();
-// });
-
-// const express = require('express');
-// const cors = require('cors');
-// const http = require('http');
-// const path = require('path');        // ⭐ Needed for serving uploads folder
-// require('dotenv').config();
-
-// // ==========================
-// // 🚀 Route Imports
-// // ==========================
-// const authRoutes = require('./routes/auth');
-// const appointmentRoutes = require('./routes/appointments');
-// const usersRoutes = require('./routes/users');
-// const dashboardRoutes = require('./routes/dashboard');
-// const doctorsRoutes = require('./routes/doctors');
-// const healthRoutes = require('./routes/health');
-// const favoritesRoutes = require('./routes/favorites');
-// const prescriptionsRoutes = require('./routes/prescriptions');
-// const medicalRecordsRoutes = require('./routes/medicalRecords');
-//   // ⭐ CORRECT IMPORT
-// const notificationsRoutes = require('./routes/notifications');
-// const patientProfileRoutes = require('./routes/patientProfile');
-// const patientRoutes = require('./routes/patientRoutes');
-// const emergencyRoutes = require('./routes/emergency');
-
-// // ==========================
-// // ⏰ Scheduler
-// // ==========================
-// const { startReminderScheduler } = require('./reminderScheduler');
-
-// // ==========================
-// // 🔔 WebSocket Server
-// // ==========================
-// const NotificationWebSocketServer = require('./websocket/server');
-
-// const app = express();
-// const PORT = process.env.PORT || 5000;
-
-// // ==========================
-// // 🔧 Global Middlewares
-// // ==========================
-// app.use(cors());
-// app.use(express.json());
-
-// // ==========================
-// // 📁 Static Uploads Directory
-// // ==========================
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// // ==========================
-// // 📌 API Route Handlers
-// // ==========================
-// app.use('/api/auth', authRoutes);
-// app.use('/api/appointments', appointmentRoutes);
-// app.use('/api/users', usersRoutes);
-// app.use('/api/dashboard', dashboardRoutes);
-// app.use('/api/doctors', doctorsRoutes);
-// app.use('/api/favorites', favoritesRoutes);
-// app.use('/api/prescriptions', prescriptionsRoutes);
-// app.use('/api/medical-records', medicalRecordsRoutes);   // ⭐ FIXED
-// app.use('/api/notifications', notificationsRoutes);
-// app.use('/health', healthRoutes);
-// app.use('/api/patient', patientProfileRoutes);
-// app.use('/api/patients', patientRoutes);
-// app.use('/api/emergency', emergencyRoutes);
-
-// // ==========================
-// // 🌐 Create HTTP Server (Required for WebSockets)
-// // ==========================
-// const server = http.createServer(app);
-
-// // ==========================
-// // 🔔 Initialize WebSocket
-// // ==========================
-// const notificationWSS = new NotificationWebSocketServer(server);
-
-// // Make WS available inside routes
-// app.set('notificationWSS', notificationWSS);
-
-// // ==========================
-// // 🚀 Start Server + Scheduler
-// // ==========================
-// server.listen(PORT, () => {
-//   console.log(`✅ Server running at http://localhost:${PORT}`);
-//   console.log(`📡 WebSocket server running on same port`);
-//   console.log(`🔔 Notifications API available at /api/notifications`);
-  
-//   startReminderScheduler();
-// });
-
-// const express = require("express");
-// const cors = require("cors");
-// const http = require("http");
-// const path = require("path");
-// require("dotenv").config();
-
-// // ==========================
-// // 🚀 Route Imports
-// // ==========================
-// const authRoutes = require("./routes/auth");
-// const appointmentRoutes = require("./routes/appointments");
-// const usersRoutes = require("./routes/users");
-// const dashboardRoutes = require("./routes/dashboard");
-// const doctorsRoutes = require("./routes/doctors");
-// const healthRoutes = require("./routes/health");
-// const favoritesRoutes = require("./routes/favorites");
-// const prescriptionsRoutes = require("./routes/prescriptions");
-// const medicalRecordsRoutes = require("./routes/medicalRecords");
-// const notificationsRoutes = require("./routes/notifications");
-// const patientProfileRoutes = require("./routes/patientProfile");
-// const patientRoutes = require("./routes/patientRoutes");
-// const emergencyRoutes = require("./routes/emergency");
-
-// // ==========================
-// // ⏰ Scheduler
-// // ==========================
-// const { startReminderScheduler } = require("./reminderScheduler");
-
-// // ==========================
-// // 🔔 WebSocket Server
-// // ==========================
-// const NotificationWebSocketServer = require("./websocket/server");
-
-// const app = express();
-// const PORT = process.env.PORT || 5000;
-
-// /* ==========================
-//    🔧 Global Middlewares
-// ========================== */
-// app.use(
-//   cors({
-//     origin: [
-//       "https://d332c478.medilink-frontendapp.pages.dev",
-//       "http://localhost:3000",
-//     ],
-//     credentials: true,
-//   })
-// );
-
-// app.use(express.json({ limit: "10mb" }));
-// app.use(express.urlencoded({ extended: true }));
-
-// /* ==========================
-//    📁 Static Uploads Directory
-// ========================== */
-// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// /* ==========================
-//    ✅ Health Check (Railway)
-// ========================== */
-// app.get("/api/health", (req, res) => {
-//   res.status(200).json({
-//     status: "ok",
-//     service: "medilink-backend",
-//     time: new Date().toISOString(),
-//   });
-// });
-
-// /* ==========================
-//    📌 API Routes
-// ========================== */
-// app.use("/api/auth", authRoutes);
-// app.use("/api/appointments", appointmentRoutes);
-// app.use("/api/users", usersRoutes);
-// app.use("/api/dashboard", dashboardRoutes);
-// app.use("/api/doctors", doctorsRoutes);
-// app.use("/api/favorites", favoritesRoutes);
-// app.use("/api/prescriptions", prescriptionsRoutes);
-// app.use("/api/medical-records", medicalRecordsRoutes);
-// app.use("/api/notifications", notificationsRoutes);
-// app.use("/health", healthRoutes);
-// app.use("/api/patient", patientProfileRoutes);
-// app.use("/api/patients", patientRoutes);
-// app.use("/api/emergency", emergencyRoutes);
-
-// /* ==========================
-//    🌐 HTTP Server (WebSockets)
-// ========================== */
-// const server = http.createServer(app);
-
-// /* ==========================
-//    🔔 Initialize WebSocket
-// ========================== */
-// const notificationWSS = new NotificationWebSocketServer(server);
-// app.set("notificationWSS", notificationWSS);
-
-// /* ==========================
-//    🚀 Start Server
-// ========================== */
-// server.listen(PORT, () => {
-//   console.log(`✅ Backend running on port ${PORT}`);
-//   console.log(`📡 WebSocket server active`);
-//   console.log(`🔔 Notifications ready`);
-
-//   // ✅ Run scheduler only in production (Railway safe)
-//   if (process.env.NODE_ENV === "production") {
-//     startReminderScheduler();
-//   }
-// });
-
-
-// const express = require("express");
-// const cors = require("cors");
-// const http = require("http");
-// const path = require("path");
-// require("dotenv").config();
-
-// // ==========================
-// // 🚀 Route Imports
-// // ==========================
-// const authRoutes = require("./routes/auth");
-// const appointmentRoutes = require("./routes/appointments");
-// const usersRoutes = require("./routes/users");
-// const dashboardRoutes = require("./routes/dashboard");
-// const doctorsRoutes = require("./routes/doctors");
-// const favoritesRoutes = require("./routes/favorites");
-// const prescriptionsRoutes = require("./routes/prescriptions");
-// const medicalRecordsRoutes = require("./routes/medicalRecords");
-// const notificationsRoutes = require("./routes/notifications");
-// const patientProfileRoutes = require("./routes/patientProfile");
-// const patientRoutes = require("./routes/patientRoutes");
-// const emergencyRoutes = require("./routes/emergency");
-
-// // ==========================
-// // ⏰ Scheduler
-// // ==========================
-// const { startReminderScheduler } = require("./reminderScheduler");
-
-// // ==========================
-// // 🔔 WebSocket Server
-// // ==========================
-// const NotificationWebSocketServer = require("./websocket/server");
-
-// const app = express();
-// const PORT = process.env.PORT || 5000;
-
-// /* ==========================
-//    🔧 Global Middlewares
-// ========================== */
-// app.use(
-//   cors({
-//     origin: [
-//       "https://d332c478.medilink-frontendapp.pages.dev",
-//       "http://localhost:3000",
-//     ],
-//     credentials: true,
-//   })
-// );
-
-// app.use(express.json({ limit: "10mb" }));
-// app.use(express.urlencoded({ extended: true }));
-
-// /* ==========================
-//    📁 Static Uploads Directory
-// ========================== */
-// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// /* ==========================
-//    ✅ HEALTH CHECK (VERY IMPORTANT)
-// ========================== */
-// app.get("/api/health", (req, res) => {
-//   res.status(200).json({
-//     success: true,
-//     message: "Backend is healthy ✅",
-//     time: new Date().toISOString(),
-//   });
-// });
-
-// /* ==========================
-//    📌 API Routes
-// ========================== */
-// app.use("/api/auth", authRoutes);
-// app.use("/api/appointments", appointmentRoutes);
-// app.use("/api/users", usersRoutes);
-// app.use("/api/dashboard", dashboardRoutes);
-// app.use("/api/doctors", doctorsRoutes);
-// app.use("/api/favorites", favoritesRoutes);
-// app.use("/api/prescriptions", prescriptionsRoutes);
-// app.use("/api/medical-records", medicalRecordsRoutes);
-// app.use("/api/notifications", notificationsRoutes);
-// app.use("/api/patient", patientProfileRoutes);
-// app.use("/api/patients", patientRoutes);
-// app.use("/api/emergency", emergencyRoutes);
-
-// /* ==========================
-//    🌐 HTTP Server (WebSockets)
-// ========================== */
-// const server = http.createServer(app);
-
-// /* ==========================
-//    🔔 Initialize WebSocket
-// ========================== */
-// const notificationWSS = new NotificationWebSocketServer(server);
-// app.set("notificationWSS", notificationWSS);
-
-// /* ==========================
-//    🚀 Start Server
-// ========================== */
-// server.listen(PORT, () => {
-//   console.log(`✅ Backend running on port ${PORT}`);
-//   console.log(`📡 WebSocket server active`);
-//   console.log(`🔔 Notifications ready`);
-
-//   if (process.env.NODE_ENV === "production") {
-//     startReminderScheduler();
-//   }
-// });
-
 // const express = require("express");
 // const cors = require("cors");
 // const http = require("http");
@@ -401,6 +11,7 @@
 // ========================== */
 // const authRoutes = require("./routes/auth");
 // const appointmentRoutes = require("./routes/appointments");
+// const smartAppointmentRoutes = require("./routes/smartAppointments"); // ✅ NEW
 // const usersRoutes = require("./routes/users");
 // const dashboardRoutes = require("./routes/dashboard");
 // const doctorsRoutes = require("./routes/doctors");
@@ -447,7 +58,7 @@
 // app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // /* ==========================
-//    ✅ HEALTH CHECK (IMPORTANT)
+//    ✅ HEALTH CHECK
 // ========================== */
 // app.get("/health", (req, res) => {
 //   res.status(200).json({
@@ -472,6 +83,10 @@
 // ========================== */
 // app.use("/api/auth", authRoutes);
 // app.use("/api/appointments", appointmentRoutes);
+
+// // ✅ SMART APPOINTMENTS (V2 – SAFE ADDITION)
+// app.use("/api/smart-appointments", smartAppointmentRoutes);
+
 // app.use("/api/users", usersRoutes);
 // app.use("/api/dashboard", dashboardRoutes);
 // app.use("/api/doctors", doctorsRoutes);
@@ -484,7 +99,7 @@
 // app.use("/api/emergency", emergencyRoutes);
 
 // /* ==========================
-//    ❌ 404 JSON HANDLER (CRITICAL FIX)
+//    ❌ 404 JSON HANDLER
 // ========================== */
 // app.use((req, res) => {
 //   res.status(404).json({
@@ -518,6 +133,7 @@
 //   }
 // });
 
+
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -529,7 +145,8 @@ require("dotenv").config();
 ========================== */
 const authRoutes = require("./routes/auth");
 const appointmentRoutes = require("./routes/appointments");
-const smartAppointmentRoutes = require("./routes/smartAppointments"); // ✅ NEW
+const smartAppointmentRoutes = require("./routes/smartAppointments"); // ✅ Smart Booking
+const dependentRoutes = require("./routes/dependents");               // ✅ Caregiver Mode
 const usersRoutes = require("./routes/users");
 const dashboardRoutes = require("./routes/dashboard");
 const doctorsRoutes = require("./routes/doctors");
@@ -600,10 +217,15 @@ app.get("/api/health", (req, res) => {
    📌 API Routes
 ========================== */
 app.use("/api/auth", authRoutes);
+
+// 🧠 Core Appointments
 app.use("/api/appointments", appointmentRoutes);
 
-// ✅ SMART APPOINTMENTS (V2 – SAFE ADDITION)
+// 🚀 Smart Appointments (V2)
 app.use("/api/smart-appointments", smartAppointmentRoutes);
+
+// 👨‍👩‍👧 Caregiver / Dependents
+app.use("/api/dependents", dependentRoutes);
 
 app.use("/api/users", usersRoutes);
 app.use("/api/dashboard", dashboardRoutes);
