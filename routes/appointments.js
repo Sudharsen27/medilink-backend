@@ -708,6 +708,8 @@ const pool = require("../config/db");
 const { protect } = require("../middleware/auth");
 const verifyAdmin = require("../middleware/admin");
 const nodemailer = require("nodemailer");
+const { appointmentStatusTemplate } = require("../utils/emailTemplates");
+
 
 // ===================================
 // 📧 Email Transporter
@@ -949,12 +951,25 @@ Thank you for choosing Medilink.`;
     }
 
     // 4️⃣ Send email
+    // await transporter.sendMail({
+    //   from: process.env.EMAIL_USER,
+    //   to: email,
+    //   subject,
+    //   text: message,
+    // });
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject,
-      text: message,
-    });
+  from: `"Medilink" <${process.env.EMAIL_USER}>`,
+  to: email,
+  subject,
+  html: appointmentStatusTemplate({
+    name,
+    status,
+    doctor: appointment.doctor_name,
+    date: appointment.date,
+    time: appointment.time,
+  }),
+});
+
 
     // 5️⃣ Notification
     await pool.query(
