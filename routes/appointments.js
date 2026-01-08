@@ -1286,6 +1286,1474 @@
 // module.exports = router;
 
 
+// const express = require("express");
+// const router = express.Router();
+// const pool = require("../config/db");
+// const { protect } = require("../middleware/auth");
+// const verifyAdmin = require("../middleware/admin");
+// const nodemailer = require("nodemailer");
+
+// const {
+//   appointmentStatusTemplate,
+//   appointmentRescheduleTemplate, // used later (step 2)
+// } = require("../utils/emailTemplates");
+
+// // ===================================
+// // 📧 Email Transporter
+// // ===================================
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.EMAIL_USER,
+//     pass: process.env.EMAIL_PASS,
+//   },
+// });
+
+// // ===================================
+// // 🩵 Create Appointment (Logged-in User)
+// // ===================================
+// router.post("/", protect, async (req, res) => {
+//   const { date, time, doctorName, patientName, patientPhone } = req.body;
+
+//   if (!date || !time || !doctorName || !patientName || !patientPhone) {
+//     return res.status(400).json({ error: "All fields are required" });
+//   }
+
+//   try {
+//     const userId = req.user.id;
+
+//     const userResult = await pool.query(
+//       "SELECT name, email FROM users WHERE id=$1",
+//       [userId]
+//     );
+
+//     if (!userResult.rows.length) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     const { name, email } = userResult.rows[0];
+
+//     const result = await pool.query(
+//       `INSERT INTO appointments
+//        (name, email, doctor_name, patient_name, patient_phone, date, time, status, user_id)
+//        VALUES ($1,$2,$3,$4,$5,$6,$7,'scheduled',$8)
+//        RETURNING *`,
+//       [name, email, doctorName, patientName, patientPhone, date, time, userId]
+//     );
+
+//     const appointment = result.rows[0];
+
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: email,
+//       subject: "✅ Appointment Booked",
+//       text: `Hello ${name},
+
+// Your appointment with Dr. ${doctorName} has been booked.
+
+// 📅 Date: ${date}
+// ⏰ Time: ${time}`,
+//     });
+
+//     res.status(201).json(appointment);
+//   } catch (err) {
+//     console.error("Create appointment error:", err);
+//     res.status(500).json({ error: "Error creating appointment" });
+//   }
+// });
+
+// // ===================================
+// // 📋 Get User Appointments
+// // ===================================
+// router.get("/", protect, async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       "SELECT * FROM appointments WHERE user_id=$1 ORDER BY id DESC",
+//       [req.user.id]
+//     );
+//     res.json(result.rows);
+//   } catch {
+//     res.status(500).json({ error: "Error fetching appointments" });
+//   }
+// });
+
+// // ===================================
+// // 🛡️ Admin: Get All Appointments
+// // ===================================
+// router.get("/all", protect, verifyAdmin, async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       "SELECT * FROM appointments ORDER BY id DESC"
+//     );
+//     res.json(result.rows);
+//   } catch {
+//     res.status(500).json({ error: "Error fetching appointments" });
+//   }
+// });
+
+// // ===================================
+// // 🔁 USER Reschedule Request (ADMIN APPROVAL REQUIRED)
+// // ===================================
+// router.put("/:id", protect, async (req, res) => {
+//   const { date, time } = req.body;
+
+//   if (!date || !time) {
+//     return res.status(400).json({ error: "Date and time are required" });
+//   }
+
+//   try {
+//     // 👤 User can request reschedule only for their appointment
+//     const existing = await pool.query(
+//       "SELECT * FROM appointments WHERE id=$1 AND user_id=$2",
+//       [req.params.id, req.user.id]
+//     );
+
+//     if (!existing.rows.length) {
+//       return res.status(404).json({ error: "Appointment not found" });
+//     }
+
+//     const updated = await pool.query(
+//       `UPDATE appointments
+//        SET date=$1,
+//            time=$2,
+//            status='reschedule_requested',
+//            updated_at=CURRENT_TIMESTAMP
+//        WHERE id=$3
+//        RETURNING *`,
+//       [date, time, req.params.id]
+//     );
+
+//     const appointment = updated.rows[0];
+
+//     // 📧 Notify ADMIN ONLY
+//     const adminEmail = process.env.CLIENT_EMAIL;
+
+//     if (adminEmail) {
+//       await transporter.sendMail({
+//         from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//         to: adminEmail,
+//         subject: "🕒 Reschedule Request Pending Approval",
+//         html: `
+//           <h3>Reschedule Request</h3>
+//           <p>A user has requested to reschedule an appointment.</p>
+//           <ul>
+//             <li><b>Patient:</b> ${appointment.name}</li>
+//             <li><b>Doctor:</b> ${appointment.doctor_name}</li>
+//             <li><b>Requested Date:</b> ${new Date(appointment.date).toLocaleDateString()}</li>
+//             <li><b>Requested Time:</b> ${appointment.time}</li>
+//           </ul>
+//           <p>Please review and approve this request from the admin dashboard.</p>
+//         `,
+//       });
+//     }
+
+//     res.json({
+//       success: true,
+//       message: "Reschedule request sent for admin approval",
+//       appointment,
+//     });
+//   } catch (err) {
+//     console.error("Reschedule request error:", err);
+//     res.status(500).json({ error: "Error requesting reschedule" });
+//   }
+// });
+
+// // ===================================
+// // ❌ Delete Appointment (USER or ADMIN)
+// // ===================================
+// router.delete("/:id", protect, async (req, res) => {
+//   try {
+//     let result;
+
+//     if (req.user.role === "admin") {
+//       result = await pool.query(
+//         "DELETE FROM appointments WHERE id=$1 RETURNING *",
+//         [req.params.id]
+//       );
+//     } else {
+//       result = await pool.query(
+//         "DELETE FROM appointments WHERE id=$1 AND user_id=$2 RETURNING *",
+//         [req.params.id, req.user.id]
+//       );
+//     }
+
+//     if (!result.rows.length) {
+//       return res.status(404).json({ error: "Appointment not found" });
+//     }
+
+//     res.json({ success: true });
+//   } catch (err) {
+//     console.error("Delete error:", err);
+//     res.status(500).json({ error: "Error deleting appointment" });
+//   }
+// });
+
+// // ===================================
+// // 🧭 Update Appointment Status (ADMIN)
+// // ===================================
+// router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
+//   const { status } = req.body;
+//   const allowedStatuses = ["confirmed", "cancelled", "completed"];
+
+//   if (!allowedStatuses.includes(status)) {
+//     return res.status(400).json({ error: "Invalid status" });
+//   }
+
+//   try {
+//     const result = await pool.query(
+//       "UPDATE appointments SET status=$1 WHERE id=$2 RETURNING *",
+//       [status, req.params.id]
+//     );
+
+//     if (!result.rows.length) {
+//       return res.status(404).json({ error: "Appointment not found" });
+//     }
+
+//     const appointment = result.rows[0];
+
+//     const userResult = await pool.query(
+//       "SELECT name, email FROM users WHERE id=$1",
+//       [appointment.user_id]
+//     );
+
+//     const { name, email } = userResult.rows[0];
+
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: email,
+//       subject: `Appointment ${status}`,
+//       html: appointmentStatusTemplate({
+//         name,
+//         status,
+//         doctor: appointment.doctor_name,
+//         date: appointment.date,
+//         time: appointment.time,
+//       }),
+//     });
+
+//     res.json({ success: true });
+//   } catch (err) {
+//     console.error("Status update error:", err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+// module.exports = router;
+
+
+// const express = require("express");
+// const router = express.Router();
+// const pool = require("../config/db");
+// const { protect } = require("../middleware/auth");
+// const verifyAdmin = require("../middleware/admin");
+// const nodemailer = require("nodemailer");
+
+// // ✅ WhatsApp helper (already working)
+// const { sendWhatsAppMessage } = require("../utils/whatsapp");
+
+// const {
+//   appointmentStatusTemplate,
+//   appointmentRescheduleTemplate,
+// } = require("../utils/emailTemplates");
+
+// // ===================================
+// // 📧 Email Transporter
+// // ===================================
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.EMAIL_USER,
+//     pass: process.env.EMAIL_PASS,
+//   },
+// });
+
+// // ===================================
+// // 🩵 Create Appointment (Logged-in User)
+// // ===================================
+// router.post("/", protect, async (req, res) => {
+//   const {
+//     date,
+//     time,
+//     doctorName,
+//     patientName,
+//     patientPhone,
+//     sendWhatsapp, // ✅ NEW
+//   } = req.body;
+
+//   if (!date || !time || !doctorName || !patientName || !patientPhone) {
+//     return res.status(400).json({ error: "All fields are required" });
+//   }
+
+//   try {
+//     const userId = req.user.id;
+
+//     const userResult = await pool.query(
+//       "SELECT name, email FROM users WHERE id=$1",
+//       [userId]
+//     );
+
+//     if (!userResult.rows.length) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     const { name, email } = userResult.rows[0];
+
+//     // ✅ Save appointment
+//     // const result = await pool.query(
+//     //   `INSERT INTO appointments
+//     //    (name, email, doctor_name, patient_name, patient_phone, date, time, status, user_id)
+//     //    VALUES ($1,$2,$3,$4,$5,$6,$7,'scheduled',$8)
+//     //    RETURNING *`,
+//     //   [name, email, doctorName, patientName, patientPhone, date, time, userId]
+//     // );
+//     const result = await pool.query(
+//   `INSERT INTO appointments
+//    (
+//      name,
+//      email,
+//      doctor_name,
+//      patient_name,
+//      patient_phone,
+//      date,
+//      time,
+//      status,
+//      user_id,
+//      send_whatsapp_reminder,
+//      reminder_sent
+//    )
+//    VALUES ($1,$2,$3,$4,$5,$6,$7,'scheduled',$8,$9,false)
+//    RETURNING *`,
+//   [
+//     name,
+//     email,
+//     doctorName,
+//     patientName,
+//     patientPhone,
+//     date,
+//     time,
+//     userId,
+//     sendWhatsapp === true, // 👈 VERY IMPORTANT
+//   ]
+// );
+
+
+//     const appointment = result.rows[0];
+
+//     // ===================================
+//     // 📧 EMAIL (Always sent)
+//     // ===================================
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: email,
+//       subject: "✅ Appointment Booked",
+//       text: `Hello ${name},
+
+// Your appointment with Dr. ${doctorName} has been booked.
+
+// 📅 Date: ${date}
+// ⏰ Time: ${time}`,
+//     });
+
+//     // ===================================
+//     // 💬 WHATSAPP (Only if checkbox checked)
+//     // ===================================
+//     if (sendWhatsapp === true) {
+//       try {
+//         await sendWhatsAppMessage({
+//           to: patientPhone,
+//           message: `✅ Appointment Confirmed!
+
+// 👤 Patient: ${patientName}
+// 👨‍⚕️ Doctor: Dr. ${doctorName}
+// 📅 Date: ${date}
+// ⏰ Time: ${time}
+
+// – Medilink`,
+//         });
+
+//         console.log("✅ WhatsApp sent for appointment:", appointment.id);
+//       } catch (waErr) {
+//         console.error("❌ WhatsApp failed:", waErr.message);
+//         // ❗ Do NOT fail appointment if WhatsApp fails
+//       }
+//     }
+
+//     res.status(201).json(appointment);
+//   } catch (err) {
+//     console.error("Create appointment error:", err);
+//     res.status(500).json({ error: "Error creating appointment" });
+//   }
+// });
+
+// // ===================================
+// // 📋 Get User Appointments
+// // ===================================
+// router.get("/", protect, async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       "SELECT * FROM appointments WHERE user_id=$1 ORDER BY id DESC",
+//       [req.user.id]
+//     );
+//     res.json(result.rows);
+//   } catch {
+//     res.status(500).json({ error: "Error fetching appointments" });
+//   }
+// });
+
+// // ===================================
+// // 🛡️ Admin: Get All Appointments
+// // ===================================
+// router.get("/all", protect, verifyAdmin, async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       "SELECT * FROM appointments ORDER BY id DESC"
+//     );
+//     res.json(result.rows);
+//   } catch {
+//     res.status(500).json({ error: "Error fetching appointments" });
+//   }
+// });
+
+// // ===================================
+// // 🔁 USER Reschedule Request
+// // ===================================
+// router.put("/:id", protect, async (req, res) => {
+//   const { date, time } = req.body;
+
+//   if (!date || !time) {
+//     return res.status(400).json({ error: "Date and time are required" });
+//   }
+
+//   try {
+//     const existing = await pool.query(
+//       "SELECT * FROM appointments WHERE id=$1 AND user_id=$2",
+//       [req.params.id, req.user.id]
+//     );
+
+//     if (!existing.rows.length) {
+//       return res.status(404).json({ error: "Appointment not found" });
+//     }
+
+//     const updated = await pool.query(
+//       `UPDATE appointments
+//        SET date=$1,
+//            time=$2,
+//            status='reschedule_requested',
+//            updated_at=CURRENT_TIMESTAMP
+//        WHERE id=$3
+//        RETURNING *`,
+//       [date, time, req.params.id]
+//     );
+
+//     res.json({
+//       success: true,
+//       message: "Reschedule request sent for admin approval",
+//       appointment: updated.rows[0],
+//     });
+//   } catch (err) {
+//     console.error("Reschedule request error:", err);
+//     res.status(500).json({ error: "Error requesting reschedule" });
+//   }
+// });
+
+// module.exports = router;
+
+
+// const express = require("express");
+// const router = express.Router();
+// const pool = require("../config/db");
+// const { protect } = require("../middleware/auth");
+// const verifyAdmin = require("../middleware/admin");
+// const nodemailer = require("nodemailer");
+
+// // ✅ WhatsApp helper
+// const { sendWhatsAppMessage } = require("../utils/whatsapp");
+
+// const {
+//   appointmentStatusTemplate,
+//   appointmentRescheduleTemplate,
+// } = require("../utils/emailTemplates");
+
+// // ===================================
+// // 📧 Email Transporter
+// // ===================================
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.EMAIL_USER,
+//     pass: process.env.EMAIL_PASS,
+//   },
+// });
+
+// // ===================================
+// // 🩵 CREATE APPOINTMENT (USER)
+// // ===================================
+// router.post("/", protect, async (req, res) => {
+//   const {
+//     date,
+//     time,
+//     doctorName,
+//     patientName,
+//     patientPhone,
+//     sendWhatsapp,
+//   } = req.body;
+
+//   if (!date || !time || !doctorName || !patientName || !patientPhone) {
+//     return res.status(400).json({ error: "All fields are required" });
+//   }
+
+//   try {
+//     const userId = req.user.id;
+
+//     const userResult = await pool.query(
+//       "SELECT name, email FROM users WHERE id=$1",
+//       [userId]
+//     );
+
+//     if (!userResult.rows.length) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     const { name, email } = userResult.rows[0];
+
+//     // ✅ Save appointment
+//     const result = await pool.query(
+//       `INSERT INTO appointments (
+//         name,
+//         email,
+//         doctor_name,
+//         patient_name,
+//         patient_phone,
+//         date,
+//         time,
+//         status,
+//         user_id,
+//         send_whatsapp_reminder,
+//         reminder_sent
+//       )
+//       VALUES ($1,$2,$3,$4,$5,$6,$7,'scheduled',$8,$9,false)
+//       RETURNING *`,
+//       [
+//         name,
+//         email,
+//         doctorName,
+//         patientName,
+//         patientPhone,
+//         date,
+//         time,
+//         userId,
+//         sendWhatsapp === true,
+//       ]
+//     );
+
+//     const appointment = result.rows[0];
+
+//     // ===================================
+//     // 📧 EMAIL CONFIRMATION
+//     // ===================================
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: email,
+//       subject: "✅ Appointment Booked",
+//       text: `Hello ${name},
+
+// Your appointment with Dr. ${doctorName} has been booked.
+
+// 📅 Date: ${date}
+// ⏰ Time: ${time}`,
+//     });
+
+//     // ===================================
+//     // 💬 WHATSAPP (OPTIONAL)
+//     // ===================================
+//     if (sendWhatsapp === true) {
+//       try {
+//         await sendWhatsAppMessage({
+//           to: patientPhone,
+//           message: `✅ Appointment Confirmed!
+
+// 👤 Patient: ${patientName}
+// 👨‍⚕️ Doctor: Dr. ${doctorName}
+// 📅 Date: ${date}
+// ⏰ Time: ${time}
+
+// – Medilink`,
+//         });
+//       } catch (err) {
+//         console.error("❌ WhatsApp failed:", err.message);
+//       }
+//     }
+
+//     res.status(201).json(appointment);
+//   } catch (err) {
+//     console.error("Create appointment error:", err);
+//     res.status(500).json({ error: "Error creating appointment" });
+//   }
+// });
+
+// // ===================================
+// // 📋 GET USER APPOINTMENTS
+// // ===================================
+// router.get("/", protect, async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       "SELECT * FROM appointments WHERE user_id=$1 ORDER BY id DESC",
+//       [req.user.id]
+//     );
+//     res.json(result.rows);
+//   } catch {
+//     res.status(500).json({ error: "Error fetching appointments" });
+//   }
+// });
+
+// // ===================================
+// // 🛡️ ADMIN: GET ALL APPOINTMENTS
+// // ===================================
+// router.get("/all", protect, verifyAdmin, async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       "SELECT * FROM appointments ORDER BY id DESC"
+//     );
+//     res.json(result.rows);
+//   } catch {
+//     res.status(500).json({ error: "Error fetching appointments" });
+//   }
+// });
+
+// // ===================================
+// // 🔁 USER: RESCHEDULE REQUEST
+// // ===================================
+// router.put("/:id", protect, async (req, res) => {
+//   const { date, time } = req.body;
+
+//   if (!date || !time) {
+//     return res.status(400).json({ error: "Date and time are required" });
+//   }
+
+//   try {
+//     const existing = await pool.query(
+//       "SELECT * FROM appointments WHERE id=$1 AND user_id=$2",
+//       [req.params.id, req.user.id]
+//     );
+
+//     if (!existing.rows.length) {
+//       return res.status(404).json({ error: "Appointment not found" });
+//     }
+
+//     const updated = await pool.query(
+//       `UPDATE appointments
+//        SET date=$1,
+//            time=$2,
+//            status='reschedule_requested',
+//            updated_at=CURRENT_TIMESTAMP
+//        WHERE id=$3
+//        RETURNING *`,
+//       [date, time, req.params.id]
+//     );
+
+//     res.json({
+//       success: true,
+//       message: "Reschedule request sent for admin approval",
+//       appointment: updated.rows[0],
+//     });
+//   } catch (err) {
+//     console.error("Reschedule error:", err);
+//     res.status(500).json({ error: "Error requesting reschedule" });
+//   }
+// });
+
+// // ===================================
+// // 🧭 ADMIN: UPDATE APPOINTMENT STATUS
+// // ===================================
+// router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
+//   const { status } = req.body;
+//   const allowedStatuses = ["confirmed", "cancelled", "completed"];
+
+//   if (!allowedStatuses.includes(status)) {
+//     return res.status(400).json({ error: "Invalid status" });
+//   }
+
+//   try {
+//     const result = await pool.query(
+//       `UPDATE appointments
+//        SET status=$1,
+//            updated_at=CURRENT_TIMESTAMP
+//        WHERE id=$2
+//        RETURNING *`,
+//       [status, req.params.id]
+//     );
+
+//     if (!result.rows.length) {
+//       return res.status(404).json({ error: "Appointment not found" });
+//     }
+
+//     res.json({
+//       success: true,
+//       appointment: result.rows[0],
+//     });
+//   } catch (err) {
+//     console.error("Status update error:", err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+// module.exports = router;
+
+
+// const express = require("express");
+// const router = express.Router();
+// const pool = require("../config/db");
+// const { protect } = require("../middleware/auth");
+// const verifyAdmin = require("../middleware/admin");
+// const nodemailer = require("nodemailer");
+
+// // WhatsApp helper
+// const { sendWhatsAppMessage } = require("../utils/whatsapp");
+
+// const {
+//   appointmentStatusTemplate,
+//   appointmentRescheduleTemplate,
+// } = require("../utils/emailTemplates");
+
+// // ===================================
+// // 📧 Email Transporter
+// // ===================================
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.EMAIL_USER,
+//     pass: process.env.EMAIL_PASS,
+//   },
+// });
+
+// // ===================================
+// // 🩵 CREATE APPOINTMENT (USER)
+// // ===================================
+// router.post("/", protect, async (req, res) => {
+//   const {
+//     date,
+//     time,
+//     doctorName,
+//     patientName,
+//     patientPhone,
+//     sendWhatsapp,
+//   } = req.body;
+
+//   if (!date || !time || !doctorName || !patientName || !patientPhone) {
+//     return res.status(400).json({ error: "All fields are required" });
+//   }
+
+//   try {
+//     const userId = req.user.id;
+
+//     const userResult = await pool.query(
+//       "SELECT name, email FROM users WHERE id=$1",
+//       [userId]
+//     );
+
+//     if (!userResult.rows.length) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     const { name, email } = userResult.rows[0];
+
+//     const result = await pool.query(
+//       `INSERT INTO appointments (
+//         name, email, doctor_name, patient_name, patient_phone,
+//         date, time, status, user_id, send_whatsapp_reminder, reminder_sent
+//       )
+//       VALUES ($1,$2,$3,$4,$5,$6,$7,'scheduled',$8,$9,false)
+//       RETURNING *`,
+//       [
+//         name,
+//         email,
+//         doctorName,
+//         patientName,
+//         patientPhone,
+//         date,
+//         time,
+//         userId,
+//         sendWhatsapp === true,
+//       ]
+//     );
+
+//     const appointment = result.rows[0];
+
+//     // Email: Appointment Booked
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: email,
+//       subject: "✅ Appointment Booked",
+//       html: appointmentStatusTemplate({
+//         name,
+//         status: "scheduled",
+//         doctor: doctorName,
+//         date,
+//         time,
+//       }),
+//     });
+
+//     // UI Notification
+//     await pool.query(
+//       `INSERT INTO notifications (user_id, message)
+//        VALUES ($1,$2)`,
+//       [userId, "Your appointment has been scheduled"]
+//     );
+
+//     // Optional WhatsApp
+//     if (sendWhatsapp === true) {
+//       await sendWhatsAppMessage({
+//         to: patientPhone,
+//         message: `✅ Appointment Booked
+// Doctor: Dr. ${doctorName}
+// Date: ${date}
+// Time: ${time}`,
+//       });
+//     }
+
+//     res.status(201).json(appointment);
+//   } catch (err) {
+//     console.error("Create appointment error:", err);
+//     res.status(500).json({ error: "Error creating appointment" });
+//   }
+// });
+
+// // ===================================
+// // 📋 GET USER APPOINTMENTS
+// // ===================================
+// router.get("/", protect, async (req, res) => {
+//   const result = await pool.query(
+//     "SELECT * FROM appointments WHERE user_id=$1 ORDER BY id DESC",
+//     [req.user.id]
+//   );
+//   res.json(result.rows);
+// });
+
+// // ===================================
+// // 🛡️ ADMIN: GET ALL APPOINTMENTS
+// // ===================================
+// router.get("/all", protect, verifyAdmin, async (req, res) => {
+//   const result = await pool.query(
+//     "SELECT * FROM appointments ORDER BY id DESC"
+//   );
+//   res.json(result.rows);
+// });
+
+// // ===================================
+// // 🔁 USER: RESCHEDULE REQUEST
+// // ===================================
+// router.put("/:id", protect, async (req, res) => {
+//   const { date, time } = req.body;
+
+//   const result = await pool.query(
+//     `UPDATE appointments
+//      SET date=$1, time=$2, status='reschedule_requested'
+//      WHERE id=$3 AND user_id=$4
+//      RETURNING *`,
+//     [date, time, req.params.id, req.user.id]
+//   );
+
+//   if (!result.rows.length) {
+//     return res.status(404).json({ error: "Appointment not found" });
+//   }
+
+//   const appointment = result.rows[0];
+
+//   await transporter.sendMail({
+//     from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//     to: appointment.email,
+//     subject: "🔁 Appointment Rescheduled",
+//     html: appointmentRescheduleTemplate(appointment),
+//   });
+
+//   await pool.query(
+//     `INSERT INTO notifications (user_id, message)
+//      VALUES ($1,$2)`,
+//     [appointment.user_id, "Your appointment has been rescheduled"]
+//   );
+
+//   res.json({ success: true, appointment });
+// });
+
+// // ===================================
+// // 🧭 ADMIN: UPDATE APPOINTMENT STATUS
+// // ===================================
+// router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
+//   const { status } = req.body;
+
+//   const allowedStatuses = ["pending", "confirmed", "cancelled", "completed"];
+//   if (!allowedStatuses.includes(status)) {
+//     return res.status(400).json({ error: "Invalid status" });
+//   }
+
+//   const result = await pool.query(
+//     `UPDATE appointments
+//      SET status=$1, updated_at=CURRENT_TIMESTAMP
+//      WHERE id=$2
+//      RETURNING *`,
+//     [status, req.params.id]
+//   );
+
+//   if (!result.rows.length) {
+//     return res.status(404).json({ error: "Appointment not found" });
+//   }
+
+//   const appointment = result.rows[0];
+
+//   // UI Notification for ALL statuses
+//   const messages = {
+//     pending: "Your appointment is pending approval",
+//     confirmed: "Your appointment has been confirmed",
+//     cancelled: "Your appointment has been cancelled",
+//     completed: "Your appointment has been completed",
+//   };
+
+//   await pool.query(
+//     `INSERT INTO notifications (user_id, message)
+//      VALUES ($1,$2)`,
+//     [appointment.user_id, messages[status]]
+//   );
+
+//   // Emails only for important statuses
+//   if (status === "confirmed" || status === "cancelled") {
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: appointment.email,
+//       subject:
+//         status === "confirmed"
+//           ? "✅ Appointment Confirmed"
+//           : "❌ Appointment Cancelled",
+//       html: appointmentStatusTemplate({
+//         name: appointment.name,
+//         status,
+//         doctor: appointment.doctor_name,
+//         date: appointment.date,
+//         time: appointment.time,
+//       }),
+//     });
+//   }
+
+//   res.json({ success: true, appointment });
+// });
+
+// module.exports = router;
+
+
+// const express = require("express");
+// const router = express.Router();
+// const pool = require("../config/db");
+// const { protect } = require("../middleware/auth");
+// const verifyAdmin = require("../middleware/admin");
+// const nodemailer = require("nodemailer");
+
+// // WhatsApp helper
+// const { sendWhatsAppMessage } = require("../utils/whatsapp");
+
+// const {
+//   appointmentStatusTemplate,
+//   appointmentRescheduleTemplate,
+// } = require("../utils/emailTemplates");
+
+// // ===================================
+// // 📧 Email Transporter
+// // ===================================
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.EMAIL_USER,
+//     pass: process.env.EMAIL_PASS,
+//   },
+// });
+
+// // ===================================
+// // 🩵 CREATE APPOINTMENT (USER)
+// // ===================================
+// router.post("/", protect, async (req, res) => {
+//   const {
+//     date,
+//     time,
+//     doctorName,
+//     patientName,
+//     patientPhone,
+//     sendWhatsapp,
+//   } = req.body;
+
+//   if (!date || !time || !doctorName || !patientName || !patientPhone) {
+//     return res.status(400).json({ error: "All fields are required" });
+//   }
+
+//   try {
+//     const userId = req.user.id;
+
+//     const userResult = await pool.query(
+//       "SELECT name, email FROM users WHERE id=$1",
+//       [userId]
+//     );
+
+//     if (!userResult.rows.length) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     const { name, email } = userResult.rows[0];
+
+//     const result = await pool.query(
+//       `INSERT INTO appointments (
+//         name, email, doctor_name, patient_name, patient_phone,
+//         date, time, status, user_id, send_whatsapp_reminder, reminder_sent
+//       )
+//       VALUES ($1,$2,$3,$4,$5,$6,$7,'scheduled',$8,$9,false)
+//       RETURNING *`,
+//       [
+//         name,
+//         email,
+//         doctorName,
+//         patientName,
+//         patientPhone,
+//         date,
+//         time,
+//         userId,
+//         sendWhatsapp === true,
+//       ]
+//     );
+
+//     const appointment = result.rows[0];
+
+//     // 📧 Email: Appointment Booked
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: email,
+//       subject: "✅ Appointment Booked",
+//       html: appointmentStatusTemplate({
+//         name,
+//         status: "scheduled",
+//         doctor: doctorName,
+//         date,
+//         time,
+//       }),
+//     });
+
+//     // 🔔 Notification (FIXED: type added)
+//     await pool.query(
+//       `INSERT INTO notifications (user_id, type, message)
+//        VALUES ($1,$2,$3)`,
+//       [userId, "appointment", "Your appointment has been scheduled"]
+//     );
+
+//     // 💬 Optional WhatsApp
+//     if (sendWhatsapp === true) {
+//       await sendWhatsAppMessage({
+//         to: patientPhone,
+//         message: `✅ Appointment Booked
+// Doctor: Dr. ${doctorName}
+// Date: ${date}
+// Time: ${time}`,
+//       });
+//     }
+
+//     res.status(201).json(appointment);
+//   } catch (err) {
+//     console.error("Create appointment error:", err);
+//     res.status(500).json({ error: "Error creating appointment" });
+//   }
+// });
+
+// // ===================================
+// // 📋 GET USER APPOINTMENTS
+// // ===================================
+// router.get("/", protect, async (req, res) => {
+//   const result = await pool.query(
+//     "SELECT * FROM appointments WHERE user_id=$1 ORDER BY id DESC",
+//     [req.user.id]
+//   );
+//   res.json(result.rows);
+// });
+
+// // ===================================
+// // 🛡️ ADMIN: GET ALL APPOINTMENTS
+// // ===================================
+// router.get("/all", protect, verifyAdmin, async (req, res) => {
+//   const result = await pool.query(
+//     "SELECT * FROM appointments ORDER BY id DESC"
+//   );
+//   res.json(result.rows);
+// });
+
+// // ===================================
+// // 🔁 USER: RESCHEDULE REQUEST
+// // ===================================
+// router.put("/:id", protect, async (req, res) => {
+//   const { date, time } = req.body;
+
+//   const result = await pool.query(
+//     `UPDATE appointments
+//      SET date=$1, time=$2, status='reschedule_requested'
+//      WHERE id=$3 AND user_id=$4
+//      RETURNING *`,
+//     [date, time, req.params.id, req.user.id]
+//   );
+
+//   if (!result.rows.length) {
+//     return res.status(404).json({ error: "Appointment not found" });
+//   }
+
+//   const appointment = result.rows[0];
+
+//   await transporter.sendMail({
+//     from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//     to: appointment.email,
+//     subject: "🔁 Appointment Rescheduled",
+//     html: appointmentRescheduleTemplate(appointment),
+//   });
+
+//   await pool.query(
+//     `INSERT INTO notifications (user_id, type, message)
+//      VALUES ($1,$2,$3)`,
+//     [
+//       appointment.user_id,
+//       "appointment",
+//       "Your appointment has been rescheduled",
+//     ]
+//   );
+
+//   res.json({ success: true, appointment });
+// });
+
+// // ===================================
+// // 🧭 ADMIN: UPDATE APPOINTMENT STATUS
+// // ===================================
+// router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
+//   const { status } = req.body;
+
+//   const allowedStatuses = ["pending", "confirmed", "cancelled", "completed"];
+//   if (!allowedStatuses.includes(status)) {
+//     return res.status(400).json({ error: "Invalid status" });
+//   }
+
+//   const result = await pool.query(
+//     `UPDATE appointments
+//      SET status=$1, updated_at=CURRENT_TIMESTAMP
+//      WHERE id=$2
+//      RETURNING *`,
+//     [status, req.params.id]
+//   );
+
+//   if (!result.rows.length) {
+//     return res.status(404).json({ error: "Appointment not found" });
+//   }
+
+//   const appointment = result.rows[0];
+
+//   const messages = {
+//     pending: "Your appointment is pending approval",
+//     confirmed: "Your appointment has been confirmed",
+//     cancelled: "Your appointment has been cancelled",
+//     completed: "Your appointment has been completed",
+//   };
+
+//   // 🔔 Notification (FIXED)
+//   await pool.query(
+//     `INSERT INTO notifications (user_id, type, message)
+//      VALUES ($1,$2,$3)`,
+//     [appointment.user_id, "appointment", messages[status]]
+//   );
+
+//   // 📧 Email only for important statuses
+//   if (status === "confirmed" || status === "cancelled") {
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: appointment.email,
+//       subject:
+//         status === "confirmed"
+//           ? "✅ Appointment Confirmed"
+//           : "❌ Appointment Cancelled",
+//       html: appointmentStatusTemplate({
+//         name: appointment.name,
+//         status,
+//         doctor: appointment.doctor_name,
+//         date: appointment.date,
+//         time: appointment.time,
+//       }),
+//     });
+//   }
+
+//   res.json({ success: true, appointment });
+// });
+
+// module.exports = router;
+
+// const express = require("express");
+// const router = express.Router();
+// const pool = require("../config/db");
+// const { protect } = require("../middleware/auth");
+// const verifyAdmin = require("../middleware/admin");
+// const nodemailer = require("nodemailer");
+
+// // WhatsApp helper
+// const { sendWhatsAppMessage } = require("../utils/whatsapp");
+
+// // ✅ FIXED import
+// const {
+//   appointmentStatusTemplate,
+//   appointmentRescheduleTemplate,
+// } = require("../utils/emailTemplates");
+
+// // ===================================
+// // 📧 Email Transporter
+// // ===================================
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.EMAIL_USER,
+//     pass: process.env.EMAIL_PASS,
+//   },
+// });
+
+// // ===================================
+// // 🔔 Notification helper (IMPORTANT)
+// // ===================================
+// const createNotification = async ({ userId, title, message }) => {
+//   await pool.query(
+//     `INSERT INTO notifications (user_id, type, title, message)
+//      VALUES ($1,'appointment',$2,$3)`,
+//     [userId, title, message]
+//   );
+// };
+
+// // ===================================
+// // 🩵 CREATE APPOINTMENT (USER)
+// // ===================================
+// router.post("/", protect, async (req, res) => {
+//   const {
+//     date,
+//     time,
+//     doctorName,
+//     patientName,
+//     patientPhone,
+//     sendWhatsapp,
+//   } = req.body;
+
+//   if (!date || !time || !doctorName || !patientName || !patientPhone) {
+//     return res.status(400).json({ error: "All fields are required" });
+//   }
+
+//   try {
+//     const userId = req.user.id;
+
+//     const userResult = await pool.query(
+//       "SELECT name, email FROM users WHERE id=$1",
+//       [userId]
+//     );
+
+//     if (!userResult.rows.length) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     const { name, email } = userResult.rows[0];
+
+//     const result = await pool.query(
+//       `INSERT INTO appointments (
+//         name, email, doctor_name, patient_name, patient_phone,
+//         date, time, status, user_id, send_whatsapp_reminder, reminder_sent
+//       )
+//       VALUES ($1,$2,$3,$4,$5,$6,$7,'scheduled',$8,$9,false)
+//       RETURNING *`,
+//       [
+//         name,
+//         email,
+//         doctorName,
+//         patientName,
+//         patientPhone,
+//         date,
+//         time,
+//         userId,
+//         sendWhatsapp === true,
+//       ]
+//     );
+
+//     const appointment = result.rows[0];
+
+//     // 📧 Email
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: email,
+//       subject: "✅ Appointment Booked",
+//       html: appointmentStatusTemplate({
+//         name,
+//         status: "scheduled",
+//         doctor: doctorName,
+//         date,
+//         time,
+//       }),
+//     });
+
+//     // 🔔 Notification (SAFE)
+//     await createNotification({
+//       userId,
+//       title: "Appointment Scheduled",
+//       message: "Your appointment has been scheduled",
+//     });
+
+//     // 💬 WhatsApp (NON-BLOCKING)
+//     if (sendWhatsapp === true) {
+//       try {
+//         await sendWhatsAppMessage({
+//           to: patientPhone,
+//           message: `✅ Appointment Booked
+// Doctor: Dr. ${doctorName}
+// Date: ${date}
+// Time: ${time}`,
+//         });
+//       } catch (err) {
+//         console.error("WhatsApp failed:", err.message);
+//       }
+//     }
+
+//     res.status(201).json(appointment);
+//   } catch (err) {
+//     console.error("Create appointment error:", err);
+//     res.status(500).json({ error: "Error creating appointment" });
+//   }
+// });
+
+// // ===================================
+// // 📋 GET USER APPOINTMENTS
+// // ===================================
+// router.get("/", protect, async (req, res) => {
+//   const result = await pool.query(
+//     "SELECT * FROM appointments WHERE user_id=$1 ORDER BY id DESC",
+//     [req.user.id]
+//   );
+//   res.json(result.rows);
+// });
+
+// // ===================================
+// // 🛡️ ADMIN: GET ALL APPOINTMENTS
+// // ===================================
+// router.get("/all", protect, verifyAdmin, async (req, res) => {
+//   const result = await pool.query(
+//     "SELECT * FROM appointments ORDER BY id DESC"
+//   );
+//   res.json(result.rows);
+// });
+
+// // ===================================
+// // 🔁 USER: RESCHEDULE REQUEST
+// // ===================================
+
+// router.put("/:id", protect, async (req, res) => {
+//   const { date, time } = req.body;
+
+//   // 1️⃣ Get existing appointment FIRST
+//   const existing = await pool.query(
+//     "SELECT * FROM appointments WHERE id=$1",
+//     [req.params.id]
+//   );
+
+//   if (!existing.rows.length) {
+//     return res.status(404).json({ error: "Appointment not found" });
+//   }
+
+//   const oldAppointment = existing.rows[0];
+
+//   // 2️⃣ Update appointment
+//   const updated = await pool.query(
+//     `UPDATE appointments
+//      SET date=$1, time=$2, status='reschedule_requested'
+//      WHERE id=$3
+//      RETURNING *`,
+//     [date, time, req.params.id]
+//   );
+
+//   const newAppointment = updated.rows[0];
+
+//   // 3️⃣ Send RESCHEDULE email (FIXED DATA)
+//   await transporter.sendMail({
+//     from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//     to: newAppointment.email,
+//     subject: "🔁 Appointment Rescheduled",
+//     html: appointmentRescheduleTemplate({
+//       name: newAppointment.name,
+//       doctor: newAppointment.doctor_name,
+//       oldDate: oldAppointment.date,
+//       oldTime: oldAppointment.time,
+//       newDate: newAppointment.date,
+//       newTime: newAppointment.time,
+//     }),
+//   });
+
+//   // 4️⃣ Notification
+//   await pool.query(
+//     `INSERT INTO notifications (user_id, type, message)
+//      VALUES ($1,'appointment','Your appointment has been rescheduled')`,
+//     [newAppointment.user_id]
+//   );
+
+//   res.json({ success: true, appointment: newAppointment });
+// });
+
+
+// // ===================================
+// // 🧭 ADMIN: UPDATE APPOINTMENT STATUS
+// // ===================================
+// router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
+//   const { status } = req.body;
+
+//   const allowedStatuses = ["pending", "confirmed", "cancelled", "completed"];
+//   if (!allowedStatuses.includes(status)) {
+//     return res.status(400).json({ error: "Invalid status" });
+//   }
+
+//   const result = await pool.query(
+//     `UPDATE appointments
+//      SET status=$1, updated_at=CURRENT_TIMESTAMP
+//      WHERE id=$2
+//      RETURNING *`,
+//     [status, req.params.id]
+//   );
+
+//   if (!result.rows.length) {
+//     return res.status(404).json({ error: "Appointment not found" });
+//   }
+
+//   const appointment = result.rows[0];
+
+//   const messages = {
+//     pending: "Your appointment is pending approval",
+//     confirmed: "Your appointment has been confirmed",
+//     cancelled: "Your appointment has been cancelled",
+//     completed: "Your appointment has been completed",
+//   };
+
+//   await createNotification({
+//     userId: appointment.user_id,
+//     title: "Appointment Status Updated",
+//     message: messages[status],
+//   });
+
+//   if (status === "confirmed" || status === "cancelled") {
+//     await transporter.sendMail({
+//       from: `"Medilink" <${process.env.EMAIL_USER}>`,
+//       to: appointment.email,
+//       subject:
+//         status === "confirmed"
+//           ? "✅ Appointment Confirmed"
+//           : "❌ Appointment Cancelled",
+//       html: appointmentStatusTemplate({
+//         name: appointment.name,
+//         status,
+//         doctor: appointment.doctor_name,
+//         date: appointment.date,
+//         time: appointment.time,
+//       }),
+//     });
+//   }
+
+//   res.json({ success: true, appointment });
+// });
+
+// module.exports = router;
+
+
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
@@ -1293,9 +2761,13 @@ const { protect } = require("../middleware/auth");
 const verifyAdmin = require("../middleware/admin");
 const nodemailer = require("nodemailer");
 
+// WhatsApp helper
+const { sendWhatsAppMessage } = require("../utils/whatsapp");
+
+// Email templates
 const {
   appointmentStatusTemplate,
-  appointmentRescheduleTemplate, // used later (step 2)
+  appointmentRescheduleTemplate,
 } = require("../utils/emailTemplates");
 
 // ===================================
@@ -1310,10 +2782,28 @@ const transporter = nodemailer.createTransport({
 });
 
 // ===================================
-// 🩵 Create Appointment (Logged-in User)
+// 🔔 Notification helper (SAFE)
+// ===================================
+const createNotification = async ({ userId, title, message }) => {
+  await pool.query(
+    `INSERT INTO notifications (user_id, type, title, message)
+     VALUES ($1,'appointment',$2,$3)`,
+    [userId, title, message]
+  );
+};
+
+// ===================================
+// 🩵 CREATE APPOINTMENT (USER)
 // ===================================
 router.post("/", protect, async (req, res) => {
-  const { date, time, doctorName, patientName, patientPhone } = req.body;
+  const {
+    date,
+    time,
+    doctorName,
+    patientName,
+    patientPhone,
+    sendWhatsapp,
+  } = req.body;
 
   if (!date || !time || !doctorName || !patientName || !patientPhone) {
     return res.status(400).json({ error: "All fields are required" });
@@ -1334,26 +2824,64 @@ router.post("/", protect, async (req, res) => {
     const { name, email } = userResult.rows[0];
 
     const result = await pool.query(
-      `INSERT INTO appointments
-       (name, email, doctor_name, patient_name, patient_phone, date, time, status, user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'scheduled',$8)
-       RETURNING *`,
-      [name, email, doctorName, patientName, patientPhone, date, time, userId]
+      `INSERT INTO appointments (
+        name, email, doctor_name, patient_name, patient_phone,
+        date, time, status, user_id, send_whatsapp_reminder, reminder_sent
+      )
+     VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,false)
+
+      RETURNING *`,
+      [
+        name,
+        email,
+        doctorName,
+        patientName,
+        patientPhone,
+        date,
+        time,
+        userId,
+        sendWhatsapp === true,
+      ]
     );
 
     const appointment = result.rows[0];
 
+    // 📧 Email
     await transporter.sendMail({
       from: `"Medilink" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "✅ Appointment Booked",
-      text: `Hello ${name},
+      html: appointmentStatusTemplate({
+        name,
+       status: "pending",
 
-Your appointment with Dr. ${doctorName} has been booked.
-
-📅 Date: ${date}
-⏰ Time: ${time}`,
+        doctor: doctorName,
+        date,
+        time,
+      }),
     });
+
+    // 🔔 Notification
+    await createNotification({
+      userId,
+      title: "Appointment Scheduled",
+      message: "Your appointment has been scheduled successfully",
+    });
+
+    // 💬 WhatsApp (optional)
+    if (sendWhatsapp === true) {
+      try {
+        await sendWhatsAppMessage({
+          to: patientPhone,
+          message: `✅ Appointment Booked
+Doctor: Dr. ${doctorName}
+Date: ${date}
+Time: ${time}`,
+        });
+      } catch (err) {
+        console.error("WhatsApp failed:", err.message);
+      }
+    }
 
     res.status(201).json(appointment);
   } catch (err) {
@@ -1363,179 +2891,140 @@ Your appointment with Dr. ${doctorName} has been booked.
 });
 
 // ===================================
-// 📋 Get User Appointments
+// 📋 GET USER APPOINTMENTS
 // ===================================
 router.get("/", protect, async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM appointments WHERE user_id=$1 ORDER BY id DESC",
-      [req.user.id]
-    );
-    res.json(result.rows);
-  } catch {
-    res.status(500).json({ error: "Error fetching appointments" });
-  }
+  const result = await pool.query(
+    "SELECT * FROM appointments WHERE user_id=$1 ORDER BY id DESC",
+    [req.user.id]
+  );
+  res.json(result.rows);
 });
 
 // ===================================
-// 🛡️ Admin: Get All Appointments
+// 🛡️ ADMIN: GET ALL APPOINTMENTS
 // ===================================
 router.get("/all", protect, verifyAdmin, async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM appointments ORDER BY id DESC"
-    );
-    res.json(result.rows);
-  } catch {
-    res.status(500).json({ error: "Error fetching appointments" });
-  }
+  const result = await pool.query(
+    "SELECT * FROM appointments ORDER BY id DESC"
+  );
+  res.json(result.rows);
 });
 
 // ===================================
-// 🔁 USER Reschedule Request (ADMIN APPROVAL REQUIRED)
+// 🔁 USER: RESCHEDULE APPOINTMENT
 // ===================================
 router.put("/:id", protect, async (req, res) => {
   const { date, time } = req.body;
 
-  if (!date || !time) {
-    return res.status(400).json({ error: "Date and time are required" });
-  }
-
   try {
-    // 👤 User can request reschedule only for their appointment
     const existing = await pool.query(
-      "SELECT * FROM appointments WHERE id=$1 AND user_id=$2",
-      [req.params.id, req.user.id]
+      "SELECT * FROM appointments WHERE id=$1",
+      [req.params.id]
     );
 
     if (!existing.rows.length) {
       return res.status(404).json({ error: "Appointment not found" });
     }
 
+    const oldAppointment = existing.rows[0];
+
     const updated = await pool.query(
       `UPDATE appointments
-       SET date=$1,
-           time=$2,
-           status='reschedule_requested',
-           updated_at=CURRENT_TIMESTAMP
+       SET date=$1, time=$2, status='reschedule_requested'
        WHERE id=$3
        RETURNING *`,
       [date, time, req.params.id]
     );
 
-    const appointment = updated.rows[0];
+    const newAppointment = updated.rows[0];
 
-    // 📧 Notify ADMIN ONLY
-    const adminEmail = process.env.CLIENT_EMAIL;
-
-    if (adminEmail) {
-      await transporter.sendMail({
-        from: `"Medilink" <${process.env.EMAIL_USER}>`,
-        to: adminEmail,
-        subject: "🕒 Reschedule Request Pending Approval",
-        html: `
-          <h3>Reschedule Request</h3>
-          <p>A user has requested to reschedule an appointment.</p>
-          <ul>
-            <li><b>Patient:</b> ${appointment.name}</li>
-            <li><b>Doctor:</b> ${appointment.doctor_name}</li>
-            <li><b>Requested Date:</b> ${new Date(appointment.date).toLocaleDateString()}</li>
-            <li><b>Requested Time:</b> ${appointment.time}</li>
-          </ul>
-          <p>Please review and approve this request from the admin dashboard.</p>
-        `,
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Reschedule request sent for admin approval",
-      appointment,
+    // 📧 Reschedule email
+    await transporter.sendMail({
+      from: `"Medilink" <${process.env.EMAIL_USER}>`,
+      to: newAppointment.email,
+      subject: "🔁 Appointment Rescheduled",
+      html: appointmentRescheduleTemplate({
+        name: newAppointment.name,
+        doctor: newAppointment.doctor_name,
+        oldDate: oldAppointment.date,
+        oldTime: oldAppointment.time,
+        newDate: newAppointment.date,
+        newTime: newAppointment.time,
+      }),
     });
+
+    // 🔔 Notification (FIXED)
+    await createNotification({
+      userId: newAppointment.user_id,
+      title: "Appointment Rescheduled",
+      message: "Your appointment has been rescheduled",
+    });
+
+    res.json({ success: true, appointment: newAppointment });
   } catch (err) {
-    console.error("Reschedule request error:", err);
-    res.status(500).json({ error: "Error requesting reschedule" });
+    console.error("Reschedule error:", err);
+    res.status(500).json({ error: "Failed to reschedule appointment" });
   }
 });
 
 // ===================================
-// ❌ Delete Appointment (USER or ADMIN)
-// ===================================
-router.delete("/:id", protect, async (req, res) => {
-  try {
-    let result;
-
-    if (req.user.role === "admin") {
-      result = await pool.query(
-        "DELETE FROM appointments WHERE id=$1 RETURNING *",
-        [req.params.id]
-      );
-    } else {
-      result = await pool.query(
-        "DELETE FROM appointments WHERE id=$1 AND user_id=$2 RETURNING *",
-        [req.params.id, req.user.id]
-      );
-    }
-
-    if (!result.rows.length) {
-      return res.status(404).json({ error: "Appointment not found" });
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Delete error:", err);
-    res.status(500).json({ error: "Error deleting appointment" });
-  }
-});
-
-// ===================================
-// 🧭 Update Appointment Status (ADMIN)
+// 🧭 ADMIN: UPDATE APPOINTMENT STATUS
 // ===================================
 router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
   const { status } = req.body;
-  const allowedStatuses = ["confirmed", "cancelled", "completed"];
 
+  const allowedStatuses = ["pending", "confirmed", "cancelled", "completed"];
   if (!allowedStatuses.includes(status)) {
     return res.status(400).json({ error: "Invalid status" });
   }
 
-  try {
-    const result = await pool.query(
-      "UPDATE appointments SET status=$1 WHERE id=$2 RETURNING *",
-      [status, req.params.id]
-    );
+  const result = await pool.query(
+    `UPDATE appointments
+     SET status=$1, updated_at=CURRENT_TIMESTAMP
+     WHERE id=$2
+     RETURNING *`,
+    [status, req.params.id]
+  );
 
-    if (!result.rows.length) {
-      return res.status(404).json({ error: "Appointment not found" });
-    }
+  if (!result.rows.length) {
+    return res.status(404).json({ error: "Appointment not found" });
+  }
 
-    const appointment = result.rows[0];
+  const appointment = result.rows[0];
 
-    const userResult = await pool.query(
-      "SELECT name, email FROM users WHERE id=$1",
-      [appointment.user_id]
-    );
+  const messages = {
+    pending: "Your appointment is pending approval",
+    confirmed: "Your appointment has been confirmed",
+    cancelled: "Your appointment has been cancelled",
+    completed: "Your appointment has been completed",
+  };
 
-    const { name, email } = userResult.rows[0];
+  await createNotification({
+    userId: appointment.user_id,
+    title: "Appointment Status Updated",
+    message: messages[status],
+  });
 
+  if (status === "confirmed" || status === "cancelled") {
     await transporter.sendMail({
       from: `"Medilink" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: `Appointment ${status}`,
+      to: appointment.email,
+      subject:
+        status === "confirmed"
+          ? "✅ Appointment Confirmed"
+          : "❌ Appointment Cancelled",
       html: appointmentStatusTemplate({
-        name,
+        name: appointment.name,
         status,
         doctor: appointment.doctor_name,
         date: appointment.date,
         time: appointment.time,
       }),
     });
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Status update error:", err);
-    res.status(500).json({ error: "Server error" });
   }
+
+  res.json({ success: true, appointment });
 });
 
 module.exports = router;
