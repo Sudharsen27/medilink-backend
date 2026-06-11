@@ -215,11 +215,14 @@ router.get("/", optional, async (req, res) => {
     const query = `
       SELECT
         d.id,
+        d.name,
+        d.photo_url,
         d.specialization,
         d.experience,
         d.rating,
         d.bio,
         d.clinic_address,
+        d.is_active,
         CASE
           WHEN $1::int IS NOT NULL THEN
             EXISTS (
@@ -261,11 +264,14 @@ router.get("/:id", optional, async (req, res) => {
     const query = `
       SELECT
         d.id,
+        d.name,
+        d.photo_url,
         d.specialization,
         d.experience,
         d.rating,
         d.bio,
         d.clinic_address,
+        d.is_active,
         CASE
           WHEN $2::int IS NOT NULL THEN
             EXISTS (

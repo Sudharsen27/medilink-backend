@@ -35,17 +35,69 @@ try {
 router.get("/", protect, async (req, res) => {
   try {
     const userId = req.user.id;
+    const { search, type, types, read } = req.query;
+    const page = parseInt(req.query.page, 10);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
+
+    const conditions = ["user_id = $1"];
+    const params = [userId];
+    let paramIndex = 2;
+
+    if (search && search.trim()) {
+      conditions.push(`(title ILIKE $${paramIndex} OR message ILIKE $${paramIndex})`);
+      params.push(`%${search.trim()}%`);
+      paramIndex += 1;
+    }
+
+    if (types) {
+      const typeList = types.split(",").map((t) => t.trim()).filter(Boolean);
+      if (typeList.length > 0) {
+        conditions.push(`type = ANY($${paramIndex})`);
+        params.push(typeList);
+        paramIndex += 1;
+      }
+    } else if (type && type !== "all") {
+      conditions.push(`type = $${paramIndex}`);
+      params.push(type);
+      paramIndex += 1;
+    }
+
+    if (read === "true") {
+      conditions.push("read = true");
+    } else if (read === "false") {
+      conditions.push("read = false");
+    }
+
+    const whereClause = conditions.join(" AND ");
+    const orderClause = "ORDER BY created_at DESC";
+
+    if (!Number.isFinite(page) || page < 1) {
+      const result = await db.query(
+        `SELECT * FROM notifications WHERE ${whereClause} ${orderClause}`,
+        params
+      );
+      return res.json(result.rows);
+    }
+
+    const offset = (page - 1) * limit;
+    const countResult = await db.query(
+      `SELECT COUNT(*)::int AS total FROM notifications WHERE ${whereClause}`,
+      params
+    );
+    const total = countResult.rows[0]?.total ?? 0;
 
     const result = await db.query(
-      `SELECT * 
-       FROM notifications 
-       WHERE user_id = $1 
-       ORDER BY created_at DESC`,
-      [userId]
+      `SELECT * FROM notifications WHERE ${whereClause} ${orderClause} LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      [...params, limit, offset]
     );
 
-    res.json(result.rows);
-
+    res.json({
+      data: result.rows,
+      total,
+      page,
+      limit,
+      hasMore: offset + result.rows.length < total,
+    });
   } catch (error) {
     console.error("❌ Notifications fetch error:", error);
     res.status(500).json({ error: "Failed to fetch notifications" });
