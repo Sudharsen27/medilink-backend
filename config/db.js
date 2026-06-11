@@ -29,15 +29,20 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const isSupabase =
+  process.env.DB_SSL === 'true' ||
+  (process.env.DB_HOST && process.env.DB_HOST.includes('supabase'));
+
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
   database: process.env.DB_NAME || 'medilink',
   password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
-  max: 10,                     // max connections
-  idleTimeoutMillis: 30000,    // close idle clients
-  connectionTimeoutMillis: 5000
+  port: Number(process.env.DB_PORT) || 5432,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 // Log connection (fires once per client)
