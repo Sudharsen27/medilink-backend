@@ -226,7 +226,12 @@ router.get(
       return res.status(404).json({ success: false, error: 'File not found' });
     }
 
-    const filePath = path.join(__dirname, '..', record.file_url);
+    const uploadsRoot = path.resolve(__dirname, '..', 'uploads', 'medical-records');
+    const filePath = path.resolve(__dirname, '..', record.file_url.replace(/^\//, ''));
+
+    if (!filePath.startsWith(uploadsRoot)) {
+      return res.status(403).json({ success: false, error: 'Invalid file path' });
+    }
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, error: 'File missing from server' });

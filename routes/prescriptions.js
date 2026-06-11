@@ -1,23 +1,51 @@
+const express = require("express");
+const { param } = require("express-validator");
+const { protect } = require("../middleware/auth");
+const asyncHandler = require("../middleware/asyncHandler");
+const handleValidationErrors = require("../middleware/validation");
+const {
+  getUserPrescriptions,
+  getPrescriptionById,
+} = require("../models/prescriptions");
 
-
-const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
 
-// Example route – Get prescriptions
-router.get('/', protect, async (req, res) => {
-  try {
-    // TODO: Replace with actual DB logic
-    const prescriptions = [];
+router.use(protect);
+
+router.get(
+  "/",
+  asyncHandler(async (req, res) => {
+    const prescriptions = await getUserPrescriptions(req.user.id);
+    res.json({
+      success: true,
+      count: prescriptions.length,
+      data: prescriptions,
+    });
+  })
+);
+
+router.get(
+  "/:id",
+  param("id").isInt().withMessage("Valid prescription ID required"),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const prescription = await getPrescriptionById(
+      req.user.id,
+      Number(req.params.id)
+    );
+
+    if (!prescription) {
+      return res.status(404).json({
+        success: false,
+        message: "Prescription not found",
+      });
+    }
 
     res.json({
       success: true,
-      data: prescriptions
+      data: prescription,
     });
-  } catch (err) {
-    console.error('❌ Error fetching prescriptions:', err);
-    res.status(500).json({ message: 'Server error while fetching prescriptions' });
-  }
-});
+  })
+);
 
 module.exports = router;

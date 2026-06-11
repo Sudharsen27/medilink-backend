@@ -22,24 +22,36 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter
-const fileFilter = (req, file, cb) => {
-  // Allow only specific file types
-  const allowedMimes = [
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain'
-  ];
+const ALLOWED_EXTENSIONS = new Set([
+  '.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.txt'
+]);
 
-  if (allowedMimes.includes(file.mimetype)) {
+const ALLOWED_MIMES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain'
+]);
+
+// File filter — MIME + extension must both match
+const fileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  const mimeOk = ALLOWED_MIMES.has(file.mimetype);
+  const extOk = ALLOWED_EXTENSIONS.has(ext);
+
+  if (mimeOk && extOk) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only images, PDFs, and documents are allowed.'), false);
+    cb(
+      new Error(
+        'Invalid file type. Allowed: images (JPG, PNG, GIF), PDF, DOC, DOCX, TXT.'
+      ),
+      false
+    );
   }
 };
 

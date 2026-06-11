@@ -2912,6 +2912,31 @@ router.get("/all", protect, verifyAdmin, async (req, res) => {
 });
 
 // ===================================
+// 📄 GET SINGLE APPOINTMENT (owner only)
+// ===================================
+router.get("/:id", protect, async (req, res) => {
+  const result = await pool.query(
+    `
+    SELECT
+      a.*,
+      COALESCE(a.appointment_date, a.date) AS appointment_date,
+      COALESCE(a.appointment_time, a.time) AS appointment_time,
+      COALESCE(d.specialization, 'General Practice') AS doctor_specialization
+    FROM appointments a
+    LEFT JOIN doctors d ON a.doctor_id = d.id
+    WHERE a.id = $1 AND a.user_id = $2
+    `,
+    [req.params.id, req.user.id]
+  );
+
+  if (!result.rows.length) {
+    return res.status(404).json({ success: false, error: "Appointment not found" });
+  }
+
+  res.json({ success: true, data: result.rows[0] });
+});
+
+// ===================================
 // 🔁 USER: RESCHEDULE APPOINTMENT
 // ===================================
 router.put("/:id", protect, async (req, res) => {
@@ -2919,8 +2944,8 @@ router.put("/:id", protect, async (req, res) => {
 
   try {
     const existing = await pool.query(
-      "SELECT * FROM appointments WHERE id=$1",
-      [req.params.id]
+      "SELECT * FROM appointments WHERE id=$1 AND user_id=$2",
+      [req.params.id, req.user.id]
     );
 
     if (!existing.rows.length) {
@@ -2932,9 +2957,9 @@ router.put("/:id", protect, async (req, res) => {
     const updated = await pool.query(
       `UPDATE appointments
        SET date=$1, time=$2, status='reschedule_requested'
-       WHERE id=$3
+       WHERE id=$3 AND user_id=$4
        RETURNING *`,
-      [date, time, req.params.id]
+      [date, time, req.params.id, req.user.id]
     );
 
     const newAppointment = updated.rows[0];

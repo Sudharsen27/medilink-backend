@@ -1,168 +1,237 @@
-const express = require('express');
+const express = require("express");
+const { body, param } = require("express-validator");
+const pool = require("../config/db");
+const { protect } = require("../middleware/auth");
+const asyncHandler = require("../middleware/asyncHandler");
+const handleValidationErrors = require("../middleware/validation");
+
 const router = express.Router();
-const auth = require('../middleware/auth');
-const { pool } = require('../config/database');
 
-// Start telemedicine consultation
-router.post('/:appointmentId/start', auth, async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-    
-    // Verify appointment belongs to user or doctor
-    const appointmentQuery = await pool.query(
-      `SELECT a.*, d.name as doctor_name, d.specialization, u.name as patient_name 
-       FROM appointments a 
-       JOIN doctors d ON a.doctor_id = d.id 
-       JOIN users u ON a.patient_id = u.id 
-       WHERE a.id = $1 AND (a.patient_id = $2 OR a.doctor_id = $3)`,
-      [appointmentId, req.user.id, req.user.id]
+router.use(protect);
+
+const appointmentAccessClause = `
+  a.id = $1 AND (
+    a.user_id = $2
+    OR a.patient_id = $2
+    OR EXISTS (
+      SELECT 1 FROM doctors d
+      WHERE d.id = a.doctor_id AND d.user_id = $2
+    )
+  )
+`;
+
+const fetchAppointmentForUser = async (appointmentId, userId) => {
+  const { rows } = await pool.query(
+    `
+    SELECT
+      a.*,
+      COALESCE(a.doctor_name, d.name, 'Doctor') AS doctor_name,
+      COALESCE(d.specialization, 'General Practice') AS doctor_specialization,
+      COALESCE(a.appointment_date, a.date) AS appointment_date,
+      COALESCE(a.appointment_time, a.time) AS appointment_time
+    FROM appointments a
+    LEFT JOIN doctors d ON a.doctor_id = d.id
+    WHERE ${appointmentAccessClause}
+    `,
+    [appointmentId, userId]
+  );
+  return rows[0] || null;
+};
+
+router.get(
+  "/:appointmentId/appointment",
+  param("appointmentId").isInt(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const appointment = await fetchAppointmentForUser(
+      req.params.appointmentId,
+      req.user.id
     );
 
-    if (appointmentQuery.rows.length === 0) {
-      return res.status(404).json({ message: 'Appointment not found' });
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: "Appointment not found" });
     }
 
-    const appointment = appointmentQuery.rows[0];
+    res.json({ success: true, data: appointment });
+  })
+);
 
-    // Check if consultation can be started
-    const now = new Date();
-    const appointmentDateTime = new Date(`${appointment.appointment_date}T${appointment.appointment_time}`);
-    const fifteenMinutesBefore = new Date(appointmentDateTime.getTime() - 15 * 60000);
-    const oneHourAfter = new Date(appointmentDateTime.getTime() + 60 * 60000);
+router.post(
+  "/:appointmentId/start",
+  param("appointmentId").isInt(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const appointmentId = Number(req.params.appointmentId);
+    const appointment = await fetchAppointmentForUser(
+      appointmentId,
+      req.user.id
+    );
 
-    if (now < fifteenMinutesBefore || now > oneHourAfter) {
-      return res.status(400).json({ 
-        message: 'Consultation can only be started 15 minutes before and up to 1 hour after scheduled time' 
-      });
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: "Appointment not found" });
     }
 
-    // Update appointment status
     await pool.query(
-      'UPDATE appointments SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      ['in-progress', appointmentId]
-    );
-
-    // Create consultation record
-    const consultationResult = await pool.query(
-      `INSERT INTO telemedicine_consultations 
-       (appointment_id, started_at, status, room_id) 
-       VALUES ($1, CURRENT_TIMESTAMP, 'active', $2) 
-       RETURNING *`,
-      [appointmentId, `room_${appointmentId}_${Date.now()}`]
-    );
-
-    res.json({
-      consultation: consultationResult.rows[0],
-      appointment: appointment
-    });
-
-  } catch (error) {
-    console.error('Error starting consultation:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// End telemedicine consultation
-router.post('/:appointmentId/end', auth, async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-    const { duration, notes } = req.body;
-
-    // Update consultation record
-    await pool.query(
-      `UPDATE telemedicine_consultations 
-       SET ended_at = CURRENT_TIMESTAMP, status = 'completed', duration = $1, notes = $2 
-       WHERE appointment_id = $3 AND status = 'active'`,
-      [duration, notes, appointmentId]
-    );
-
-    // Update appointment status
-    await pool.query(
-      'UPDATE appointments SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      ['completed', appointmentId]
-    );
-
-    res.json({ message: 'Consultation ended successfully' });
-
-  } catch (error) {
-    console.error('Error ending consultation:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get consultation details
-router.get('/:appointmentId', auth, async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-
-    const consultationQuery = await pool.query(
-      `SELECT tc.*, a.*, d.name as doctor_name, d.specialization, u.name as patient_name 
-       FROM telemedicine_consultations tc
-       JOIN appointments a ON tc.appointment_id = a.id
-       JOIN doctors d ON a.doctor_id = d.id
-       JOIN users u ON a.patient_id = u.id
-       WHERE tc.appointment_id = $1 AND (a.patient_id = $2 OR a.doctor_id = $3)`,
-      [appointmentId, req.user.id, req.user.id]
-    );
-
-    if (consultationQuery.rows.length === 0) {
-      return res.status(404).json({ message: 'Consultation not found' });
-    }
-
-    res.json(consultationQuery.rows[0]);
-
-  } catch (error) {
-    console.error('Error fetching consultation:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Save chat message
-router.post('/:appointmentId/chat', auth, async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-    const { message, sender_type } = req.body;
-
-    await pool.query(
-      `INSERT INTO consultation_chats 
-       (appointment_id, sender_type, sender_id, message, sent_at) 
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)`,
-      [appointmentId, sender_type, req.user.id, message]
-    );
-
-    res.json({ message: 'Chat message saved' });
-
-  } catch (error) {
-    console.error('Error saving chat message:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get chat history
-router.get('/:appointmentId/chat', auth, async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-
-    const chatQuery = await pool.query(
-      `SELECT cc.*, 
-              CASE 
-                WHEN cc.sender_type = 'doctor' THEN d.name
-                ELSE u.name
-              END as sender_name
-       FROM consultation_chats cc
-       LEFT JOIN doctors d ON cc.sender_id = d.id AND cc.sender_type = 'doctor'
-       LEFT JOIN users u ON cc.sender_id = u.id AND cc.sender_type = 'patient'
-       WHERE cc.appointment_id = $1 
-       ORDER BY cc.sent_at ASC`,
+      `UPDATE appointments SET status = 'in-progress', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [appointmentId]
     );
 
-    res.json(chatQuery.rows);
+    const active = await pool.query(
+      `SELECT * FROM telemedicine_consultations WHERE appointment_id = $1 AND status = 'active' ORDER BY id DESC LIMIT 1`,
+      [appointmentId]
+    );
 
-  } catch (error) {
-    console.error('Error fetching chat history:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+    let consultation = active.rows[0];
+    if (!consultation) {
+      const { rows } = await pool.query(
+        `
+        INSERT INTO telemedicine_consultations
+          (appointment_id, started_at, status, room_id)
+        VALUES ($1, CURRENT_TIMESTAMP, 'active', $2)
+        RETURNING *
+        `,
+        [appointmentId, `room_${appointmentId}_${Date.now()}`]
+      );
+      consultation = rows[0];
+    }
+
+    res.json({
+      success: true,
+      consultation,
+      appointment,
+      room_id: consultation?.room_id,
+    });
+  })
+);
+
+router.post(
+  "/:appointmentId/end",
+  param("appointmentId").isInt(),
+  body("duration").optional().isInt(),
+  body("notes").optional().isString(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const appointmentId = Number(req.params.appointmentId);
+    const appointment = await fetchAppointmentForUser(
+      appointmentId,
+      req.user.id
+    );
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: "Appointment not found" });
+    }
+
+    const { duration, notes } = req.body;
+
+    await pool.query(
+      `
+      UPDATE telemedicine_consultations
+      SET ended_at = CURRENT_TIMESTAMP, status = 'completed', duration = $1, notes = $2
+      WHERE appointment_id = $3 AND status = 'active'
+      `,
+      [duration || null, notes || null, appointmentId]
+    );
+
+    await pool.query(
+      `UPDATE appointments SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [appointmentId]
+    );
+
+    res.json({ success: true, message: "Consultation ended successfully" });
+  })
+);
+
+router.get(
+  "/:appointmentId",
+  param("appointmentId").isInt(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const appointmentId = Number(req.params.appointmentId);
+    const appointment = await fetchAppointmentForUser(
+      appointmentId,
+      req.user.id
+    );
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: "Consultation not found" });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT * FROM telemedicine_consultations WHERE appointment_id = $1 ORDER BY id DESC LIMIT 1`,
+      [appointmentId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ...appointment,
+        consultation: rows[0] || null,
+      },
+    });
+  })
+);
+
+router.post(
+  "/:appointmentId/chat",
+  param("appointmentId").isInt(),
+  body("message").isString().trim().notEmpty(),
+  body("sender_type").isIn(["doctor", "patient"]),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const appointmentId = Number(req.params.appointmentId);
+    const appointment = await fetchAppointmentForUser(
+      appointmentId,
+      req.user.id
+    );
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: "Appointment not found" });
+    }
+
+    const { message, sender_type } = req.body;
+
+    const { rows } = await pool.query(
+      `
+      INSERT INTO consultation_chats
+        (appointment_id, sender_type, sender_id, message, sent_at)
+      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+      RETURNING *
+      `,
+      [appointmentId, sender_type, req.user.id, message]
+    );
+
+    res.status(201).json({ success: true, data: rows[0] });
+  })
+);
+
+router.get(
+  "/:appointmentId/chat",
+  param("appointmentId").isInt(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const appointmentId = Number(req.params.appointmentId);
+    const appointment = await fetchAppointmentForUser(
+      appointmentId,
+      req.user.id
+    );
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: "Appointment not found" });
+    }
+
+    const { rows } = await pool.query(
+      `
+      SELECT cc.*, u.name AS sender_name
+      FROM consultation_chats cc
+      LEFT JOIN users u ON cc.sender_id = u.id
+      WHERE cc.appointment_id = $1
+      ORDER BY cc.sent_at ASC
+      `,
+      [appointmentId]
+    );
+
+    res.json({ success: true, data: rows });
+  })
+);
 
 module.exports = router;

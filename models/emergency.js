@@ -1,4 +1,9 @@
+const pool = require("../config/db");
+const twilio = require("twilio");
 
+const logToEmergencyServices = async () => {
+  /* Optional external logging hook */
+};
 
 /* ======================================================
    EMERGENCY MEDICAL INFO
@@ -74,9 +79,9 @@ const updateEmergencyMedicalInfo = async (userId, medicalInfo) => {
     [
       userId,
       blood_type,
-      JSON.stringify(allergies),
-      JSON.stringify(medications),
-      JSON.stringify(conditions),
+      allergies,
+      medications,
+      conditions,
       emergency_notes,
       doctor_name,
       doctor_phone,

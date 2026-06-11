@@ -551,4 +551,37 @@ INSERT INTO notifications (user_id, type, title, message, priority)
 SELECT id, 'appointment', 'Welcome to Medilink', 'Your account is ready.', 'medium'
 FROM users WHERE email = 'patient@medilink.test';
 
+-- Sample telemedicine appointment
+INSERT INTO appointments (
+    user_id, name, email, doctor_name, patient_name, patient_phone,
+    appointment_date, appointment_time, date, time,
+    status, appointment_type, reason
+)
+SELECT
+    u.id, u.name, u.email, 'Dr. Sarah Johnson', 'John Patient', u.phone,
+    CURRENT_DATE, '14:30:00', CURRENT_DATE, '14:30:00',
+    'confirmed', 'telemedicine', 'Follow-up consultation'
+FROM users u WHERE u.email = 'patient@medilink.test';
+
+-- Sample prescriptions
+INSERT INTO prescriptions (
+    user_id, medication_name, doctor_name, dosage, frequency,
+    start_date, end_date, status, instructions
+)
+SELECT
+    u.id, 'Amoxicillin', 'Dr. Sarah Johnson', '500mg', 'Twice daily',
+    CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', 'active',
+    'Take after meals. Complete full course.'
+FROM users u WHERE u.email = 'patient@medilink.test';
+
+INSERT INTO prescriptions (
+    user_id, medication_name, doctor_name, dosage, frequency,
+    start_date, end_date, status, instructions
+)
+SELECT
+    u.id, 'Paracetamol', 'Dr. Sarah Johnson', '650mg', 'As needed',
+    CURRENT_DATE, CURRENT_DATE + INTERVAL '5 days', 'active',
+    'Do not exceed 4 doses in 24 hours.'
+FROM users u WHERE u.email = 'patient@medilink.test';
+
 COMMIT;
