@@ -184,12 +184,33 @@ const PORT = process.env.PORT || 5000;
 /* ==========================
    🔧 Global Middlewares
 ========================== */
+const DEFAULT_CORS_ORIGINS = [
+  "http://localhost:3000",
+  "https://d332c478.medilink-frontendapp.pages.dev",
+  "https://medilink-frontend-ml45.vercel.app",
+];
+
+const corsOrigins = [
+  ...DEFAULT_CORS_ORIGINS,
+  ...(process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+];
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (corsOrigins.includes(origin)) return true;
+  // Vercel production + preview deployments
+  if (/^https:\/\/[\w.-]+\.vercel\.app$/.test(origin)) return true;
+  return false;
+};
+
 app.use(
   cors({
-    origin: [
-      "https://d332c478.medilink-frontendapp.pages.dev",
-      "http://localhost:3000",
-    ],
+    origin: (origin, callback) => {
+      callback(null, isAllowedOrigin(origin));
+    },
     credentials: true,
   })
 );
