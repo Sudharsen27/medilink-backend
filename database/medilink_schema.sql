@@ -189,6 +189,9 @@ CREATE TABLE appointments (
     notes                   TEXT,
     send_whatsapp_reminder  BOOLEAN NOT NULL DEFAULT FALSE,
     reminder_sent           BOOLEAN NOT NULL DEFAULT FALSE,
+    google_event_id         VARCHAR(255),
+    meet_link               TEXT,
+    calendar_synced_at      TIMESTAMPTZ,
     service_id              INTEGER,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()

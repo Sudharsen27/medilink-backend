@@ -249,6 +249,7 @@ exports.appointmentStatusTemplate = ({
   doctor,
   date,
   time,
+  meetLink,
 }) => {
   const statusColor =
     status === "confirmed"
@@ -275,6 +276,17 @@ exports.appointmentStatusTemplate = ({
         <p><b>📅 Date:</b> ${formatDate(date)}</p>
         <p><b>⏰ Time:</b> ${safe(time)}</p>
       </div>
+
+      ${
+        meetLink && status === "confirmed"
+          ? `<p style="margin:16px 0">
+              <a href="${safe(meetLink)}"
+                 style="display:inline-block;background:#16a34a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+                Join Google Meet
+              </a>
+            </p>`
+          : ""
+      }
 
       ${
         status === "cancelled"

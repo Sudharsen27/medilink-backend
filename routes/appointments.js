@@ -2764,6 +2764,14 @@ const nodemailer = require("nodemailer");
 // WhatsApp helper
 const { sendWhatsAppMessage } = require("../utils/whatsapp");
 
+// Google Calendar + Meet
+const {
+  maybeSyncOnCreate,
+  maybeSyncOnConfirm,
+  updateAppointmentCalendar,
+  cancelAppointmentCalendar,
+} = require("../services/appointmentCalendar.service");
+
 // Email templates
 const {
   appointmentStatusTemplate,
@@ -2803,7 +2811,11 @@ router.post("/", protect, async (req, res) => {
     patientName,
     patientPhone,
     sendWhatsapp,
+    appointmentType,
+    consultationType,
   } = req.body;
+
+  const appointment_type = appointmentType || consultationType || "in-person";
 
   if (!date || !time || !doctorName || !patientName || !patientPhone) {
     return res.status(400).json({ error: "All fields are required" });
@@ -2826,9 +2838,10 @@ router.post("/", protect, async (req, res) => {
     const result = await pool.query(
       `INSERT INTO appointments (
         name, email, doctor_name, patient_name, patient_phone,
-        date, time, status, user_id, send_whatsapp_reminder, reminder_sent
+        date, time, status, user_id, send_whatsapp_reminder, reminder_sent,
+        appointment_type
       )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,false)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,false,$10)
 
       RETURNING *`,
       [
@@ -2841,10 +2854,12 @@ router.post("/", protect, async (req, res) => {
         time,
         userId,
         sendWhatsapp === true,
+        appointment_type,
       ]
     );
 
-    const appointment = result.rows[0];
+    let appointment = result.rows[0];
+    appointment = await maybeSyncOnCreate(appointment);
 
     // 📧 Email
     await transporter.sendMail({
@@ -2962,7 +2977,8 @@ router.put("/:id", protect, async (req, res) => {
       [date, time, req.params.id, req.user.id]
     );
 
-    const newAppointment = updated.rows[0];
+    let newAppointment = updated.rows[0];
+    newAppointment = await updateAppointmentCalendar(newAppointment);
 
     // 📧 Reschedule email
     await transporter.sendMail({
@@ -3016,11 +3032,19 @@ router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
     return res.status(404).json({ error: "Appointment not found" });
   }
 
-  const appointment = result.rows[0];
+  let appointment = result.rows[0];
+
+  if (status === "confirmed") {
+    appointment = await maybeSyncOnConfirm(appointment);
+  } else if (status === "cancelled") {
+    appointment = await cancelAppointmentCalendar(appointment);
+  }
 
   const messages = {
     pending: "Your appointment is pending approval",
-    confirmed: "Your appointment has been confirmed",
+    confirmed: appointment.meet_link
+      ? "Your appointment is confirmed — Google Meet link is ready"
+      : "Your appointment has been confirmed",
     cancelled: "Your appointment has been cancelled",
     completed: "Your appointment has been completed",
   };
@@ -3045,11 +3069,44 @@ router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
         doctor: appointment.doctor_name,
         date: appointment.date,
         time: appointment.time,
+        meetLink: appointment.meet_link,
       }),
     });
   }
 
   res.json({ success: true, appointment });
+});
+
+// ===================================
+// 📅 SYNC GOOGLE CALENDAR (owner)
+// ===================================
+router.post("/:id/sync-calendar", protect, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM appointments WHERE id=$1 AND user_id=$2",
+      [req.params.id, req.user.id]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: "Appointment not found" });
+    }
+
+    const { syncAppointmentCalendar } = require("../services/appointmentCalendar.service");
+    const updated = await syncAppointmentCalendar(result.rows[0], { force: true });
+
+    res.json({
+      success: true,
+      appointment: updated,
+      message: updated.meet_link
+        ? "Google Meet link created"
+        : updated.calendar_link
+          ? "Added to Google Calendar (Meet needs OAuth — see .env.example)"
+          : "Calendar sync skipped or not configured",
+    });
+  } catch (err) {
+    console.error("Calendar sync error:", err);
+    res.status(500).json({ error: "Failed to sync calendar" });
+  }
 });
 
 module.exports = router;
