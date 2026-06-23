@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "test": "jest --runInBand",
     "seed:demo": "node scripts/seedDemoData.js",
+    "seed:doctors": "node scripts/seedDoctors.js",
     "migrate:calendar": "node scripts/migrateGoogleCalendar.js",
     "backfill:calendar": "node scripts/backfillCalendar.js",
     "google:auth": "node scripts/googleCalendarAuth.js"

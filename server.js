@@ -166,6 +166,7 @@ const patientRoutes = require("./routes/patientRoutes");
 const emergencyRoutes = require("./routes/emergency");
 const telemedicineRoutes = require("./routes/telemedicine");
 const adminAnalyticsRoutes = require("./routes/adminAnalytics");
+const aiRoutes = require("./routes/ai");
 
 // ✅ ADD THIS
 const testWhatsappRoutes = require("./routes/testWhatsapp");
@@ -257,6 +258,7 @@ app.use("/api/patients", patientRoutes);
 app.use("/api/emergency", emergencyRoutes);
 app.use("/api/telemedicine", telemedicineRoutes);
 app.use("/api/admin", adminAnalyticsRoutes);
+app.use("/api/ai", aiRoutes);
 
 // ✅ WHATSAPP TEST ROUTE (THIS WAS MISSING)
 app.use("/api/test/whatsapp", testWhatsappRoutes);

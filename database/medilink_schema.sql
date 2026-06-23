@@ -529,6 +529,30 @@ FROM doctors d
 JOIN users u ON d.user_id = u.id
 WHERE u.email = 'doctor@medilink.test';
 
+-- Additional marketplace doctors (no login — browse & book only)
+INSERT INTO doctors (name, full_name, specialization, experience, experience_years, rating, bio, clinic_address, hospital, location, is_active) VALUES
+('Dr. Michael Chen', 'Dr. Michael Chen', 'Dermatology', 9, 9, 4.65, 'Expert in acne, eczema, and cosmetic dermatology.', 'Apollo Skin Clinic, Chennai', 'Apollo Hospitals', 'Chennai', TRUE),
+('Dr. Priya Sharma', 'Dr. Priya Sharma', 'Pediatrics', 11, 11, 4.85, 'Pediatrician for child wellness and vaccinations.', 'Rainbow Children''s Hospital, Hyderabad', 'Rainbow Hospitals', 'Hyderabad', TRUE),
+('Dr. Rajesh Kumar', 'Dr. Rajesh Kumar', 'Orthopedics', 15, 15, 4.70, 'Sports injuries, joint pain, and fracture care.', 'Fortis Bone & Joint Institute, Noida', 'Fortis Healthcare', 'Noida', TRUE),
+('Dr. Ananya Reddy', 'Dr. Ananya Reddy', 'Gynecology', 10, 10, 4.90, 'OB-GYN and women''s health specialist.', 'Cloudnine Hospital, Bengaluru', 'Cloudnine', 'Bengaluru', TRUE),
+('Dr. Vikram Singh', 'Dr. Vikram Singh', 'Neurology', 14, 14, 4.75, 'Migraines, epilepsy, and stroke recovery.', 'Max Hospital, New Delhi', 'Max Healthcare', 'New Delhi', TRUE),
+('Dr. Meera Iyer', 'Dr. Meera Iyer', 'Psychiatry', 8, 8, 4.60, 'Anxiety, depression, and stress management.', 'Mind Wellness Centre, Mumbai', 'Mind Wellness', 'Mumbai', TRUE),
+('Dr. Arjun Nair', 'Dr. Arjun Nair', 'General Practice', 7, 7, 4.55, 'Family physician for routine and preventive care.', 'MediLink Primary Care, Kochi', 'MediLink Clinic', 'Kochi', TRUE),
+('Dr. Kavitha Menon', 'Dr. Kavitha Menon', 'Endocrinology', 12, 12, 4.80, 'Diabetes and thyroid specialist.', 'Manipal Hospital, Bengaluru', 'Manipal Hospitals', 'Bengaluru', TRUE),
+('Dr. Suresh Patel', 'Dr. Suresh Patel', 'Gastroenterology', 16, 16, 4.72, 'Digestive and liver health specialist.', 'Global Hospital, Mumbai', 'Gleneagles Global', 'Mumbai', TRUE),
+('Dr. Deepa Krishnan', 'Dr. Deepa Krishnan', 'Ophthalmology', 10, 10, 4.68, 'Eye care and vision correction.', 'Sankara Eye Hospital, Coimbatore', 'Sankara Eye', 'Coimbatore', TRUE),
+('Dr. Rahul Mehta', 'Dr. Rahul Mehta', 'Pulmonology', 13, 13, 4.77, 'Asthma, COPD, and respiratory care.', 'Kokilaben Hospital, Mumbai', 'Kokilaben Hospital', 'Mumbai', TRUE),
+('Dr. Lakshmi Devi', 'Dr. Lakshmi Devi', 'ENT', 9, 9, 4.58, 'Sinus, hearing, and throat specialist.', 'MIOT International, Chennai', 'MIOT Hospitals', 'Chennai', TRUE),
+('Dr. Amit Verma', 'Dr. Amit Verma', 'Urology', 11, 11, 4.63, 'Kidney stones and urological conditions.', 'Artemis Hospital, Gurugram', 'Artemis Hospitals', 'Gurugram', TRUE),
+('Dr. Sunita Rao', 'Dr. Sunita Rao', 'Oncology', 18, 18, 4.92, 'Cancer diagnosis and treatment planning.', 'Tata Memorial Centre, Mumbai', 'Tata Memorial', 'Mumbai', TRUE),
+('Dr. Karthik Balan', 'Dr. Karthik Balan', 'Cardiology', 6, 6, 4.50, 'Hypertension and preventive heart care.', 'KIMS Hospital, Hyderabad', 'KIMS Hospitals', 'Hyderabad', TRUE);
+
+INSERT INTO doctor_availability (doctor_id, start_time, end_time, is_online, is_emergency_available, current_queue)
+SELECT d.id, '09:00', '18:00', d.is_active, FALSE, 0
+FROM doctors d
+WHERE d.user_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM doctor_availability da WHERE da.doctor_id = d.id);
+
 -- Patient registry row (admin module)
 INSERT INTO patients (
     user_id, first_name, last_name, phone, email, dob, gender,

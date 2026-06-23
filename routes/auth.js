@@ -132,7 +132,7 @@ const transporter = nodemailer.createTransport({
 // REGISTER USER
 // ------------------------------------------
 router.post("/register", async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body;
 
   try {
     // Check if email already exists
@@ -154,7 +154,7 @@ router.post("/register", async (req, res) => {
     // Insert user
     const result = await pool.query(
       "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role",
-      [name, email, hashedPassword, role || "user"]
+      [name, email, hashedPassword, "user"]
     );
 
     const user = result.rows[0];

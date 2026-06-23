@@ -4,6 +4,7 @@ const express = require("express");
 const { body, param, query } = require("express-validator");
 
 const { protect } = require("../middleware/auth");
+const { requireStaff } = require("../middleware/roles");
 const asyncHandler = require("../middleware/asyncHandler");
 const handleValidationErrors = require("../middleware/validation");
 
@@ -21,9 +22,9 @@ const {
 const router = express.Router();
 
 /* ============================================================
-   PROTECT ALL ROUTES
+   PROTECT ALL ROUTES — staff only (doctor / admin)
 ============================================================ */
-router.use(protect);
+router.use(protect, requireStaff);
 
 /* ============================================================
    GET PATIENT STATS

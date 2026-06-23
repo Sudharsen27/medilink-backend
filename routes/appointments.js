@@ -2759,6 +2759,7 @@ const router = express.Router();
 const pool = require("../config/db");
 const { protect } = require("../middleware/auth");
 const verifyAdmin = require("../middleware/admin");
+const { requireAdmin } = require("../middleware/roles");
 const nodemailer = require("nodemailer");
 
 // WhatsApp helper
@@ -3015,7 +3016,14 @@ router.put("/:id", protect, async (req, res) => {
 router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
   const { status } = req.body;
 
-  const allowedStatuses = ["pending", "confirmed", "cancelled", "completed"];
+  const allowedStatuses = [
+    "pending",
+    "scheduled",
+    "reschedule_requested",
+    "confirmed",
+    "cancelled",
+    "completed",
+  ];
   if (!allowedStatuses.includes(status)) {
     return res.status(400).json({ error: "Invalid status" });
   }
@@ -3042,6 +3050,8 @@ router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
 
   const messages = {
     pending: "Your appointment is pending approval",
+    scheduled: "Your appointment has been scheduled",
+    reschedule_requested: "Your reschedule request has been received",
     confirmed: appointment.meet_link
       ? "Your appointment is confirmed — Google Meet link is ready"
       : "Your appointment has been confirmed",
@@ -3075,6 +3085,62 @@ router.patch("/:id/status", protect, verifyAdmin, async (req, res) => {
   }
 
   res.json({ success: true, appointment });
+});
+
+// ===================================
+// 🚫 USER: CANCEL OWN APPOINTMENT
+// ===================================
+router.patch("/:id/cancel", protect, async (req, res) => {
+  const result = await pool.query(
+    `UPDATE appointments
+     SET status='cancelled', updated_at=CURRENT_TIMESTAMP
+     WHERE id=$1 AND user_id=$2
+     RETURNING *`,
+    [req.params.id, req.user.id]
+  );
+
+  if (!result.rows.length) {
+    return res.status(404).json({ error: "Appointment not found" });
+  }
+
+  let appointment = result.rows[0];
+  const { cancelAppointmentCalendar } = require("../services/appointmentCalendar.service");
+  appointment = await cancelAppointmentCalendar(appointment);
+
+  await createNotification({
+    userId: appointment.user_id,
+    title: "Appointment Cancelled",
+    message: "Your appointment has been cancelled",
+  });
+
+  res.json({ success: true, appointment });
+});
+
+// ===================================
+// 🗑️ ADMIN: DELETE APPOINTMENT
+// ===================================
+router.delete("/:id", protect, requireAdmin, async (req, res) => {
+  try {
+    const existing = await pool.query(
+      "SELECT * FROM appointments WHERE id=$1",
+      [req.params.id]
+    );
+
+    if (!existing.rows.length) {
+      return res.status(404).json({ error: "Appointment not found" });
+    }
+
+    const appointment = existing.rows[0];
+    const { cancelAppointmentCalendar } = require("../services/appointmentCalendar.service");
+    await cancelAppointmentCalendar(appointment);
+
+    await pool.query("DELETE FROM appointments WHERE id=$1", [req.params.id]);
+
+    res.json({ success: true, message: "Appointment deleted" });
+  } catch (err) {
+    console.error("Delete appointment error:", err);
+    res.status(500).json({ error: "Failed to delete appointment" });
+  }
 });
 
 // ===================================
