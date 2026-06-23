@@ -2953,15 +2953,22 @@ router.get("/:id", protect, async (req, res) => {
 });
 
 // ===================================
-// 🔁 USER: RESCHEDULE APPOINTMENT
+// 🔁 RESCHEDULE APPOINTMENT (owner or admin)
 // ===================================
 router.put("/:id", protect, async (req, res) => {
   const { date, time } = req.body;
 
+  if (!date || !time) {
+    return res.status(400).json({ error: "Date and time are required" });
+  }
+
   try {
+    const isAdmin = req.user.role === "admin";
     const existing = await pool.query(
-      "SELECT * FROM appointments WHERE id=$1 AND user_id=$2",
-      [req.params.id, req.user.id]
+      isAdmin
+        ? "SELECT * FROM appointments WHERE id=$1"
+        : "SELECT * FROM appointments WHERE id=$1 AND user_id=$2",
+      isAdmin ? [req.params.id] : [req.params.id, req.user.id]
     );
 
     if (!existing.rows.length) {
@@ -2969,39 +2976,58 @@ router.put("/:id", protect, async (req, res) => {
     }
 
     const oldAppointment = existing.rows[0];
+    const nextStatus = isAdmin ? oldAppointment.status : "reschedule_requested";
 
     const updated = await pool.query(
       `UPDATE appointments
-       SET date=$1, time=$2, status='reschedule_requested'
-       WHERE id=$3 AND user_id=$4
+       SET date=$1,
+           time=$2,
+           appointment_date=$1,
+           appointment_time=$2,
+           status=$3,
+           updated_at=CURRENT_TIMESTAMP
+       WHERE id=$4
        RETURNING *`,
-      [date, time, req.params.id, req.user.id]
+      [date, time, nextStatus, req.params.id]
     );
 
     let newAppointment = updated.rows[0];
-    newAppointment = await updateAppointmentCalendar(newAppointment);
 
-    // 📧 Reschedule email
-    await transporter.sendMail({
-      from: `"Medilink" <${process.env.EMAIL_USER}>`,
-      to: newAppointment.email,
-      subject: "🔁 Appointment Rescheduled",
-      html: appointmentRescheduleTemplate({
-        name: newAppointment.name,
-        doctor: newAppointment.doctor_name,
-        oldDate: oldAppointment.date,
-        oldTime: oldAppointment.time,
-        newDate: newAppointment.date,
-        newTime: newAppointment.time,
-      }),
-    });
+    try {
+      newAppointment = await updateAppointmentCalendar(newAppointment);
+    } catch (calendarErr) {
+      console.error("Calendar update on reschedule failed:", calendarErr.message);
+    }
 
-    // 🔔 Notification (FIXED)
-    await createNotification({
-      userId: newAppointment.user_id,
-      title: "Appointment Rescheduled",
-      message: "Your appointment has been rescheduled",
-    });
+    try {
+      await transporter.sendMail({
+        from: `"Medilink" <${process.env.EMAIL_USER}>`,
+        to: newAppointment.email,
+        subject: "🔁 Appointment Rescheduled",
+        html: appointmentRescheduleTemplate({
+          name: newAppointment.name,
+          doctor: newAppointment.doctor_name,
+          oldDate: oldAppointment.date,
+          oldTime: oldAppointment.time,
+          newDate: newAppointment.date,
+          newTime: newAppointment.time,
+        }),
+      });
+    } catch (mailErr) {
+      console.error("Reschedule email failed:", mailErr.message);
+    }
+
+    try {
+      await createNotification({
+        userId: newAppointment.user_id,
+        title: isAdmin ? "Appointment Rescheduled" : "Reschedule Requested",
+        message: isAdmin
+          ? "Your appointment date/time has been updated"
+          : "Your reschedule request has been submitted for approval",
+      });
+    } catch (notifErr) {
+      console.error("Reschedule notification failed:", notifErr.message);
+    }
 
     res.json({ success: true, appointment: newAppointment });
   } catch (err) {

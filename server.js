@@ -175,6 +175,7 @@ const testWhatsappRoutes = require("./routes/testWhatsapp");
    ⏰ Scheduler
 ========================== */
 const { startReminderScheduler } = require("./reminderScheduler");
+const { seedDoctorsIfEmpty } = require("./services/seedDoctors.service");
 
 /* ==========================
    🔔 WebSocket Server
@@ -292,6 +293,10 @@ server.listen(PORT, () => {
   console.log(`✅ Backend running on port ${PORT}`);
   console.log(`📡 WebSocket server active`);
   console.log(`🔔 Notifications ready`);
+
+  seedDoctorsIfEmpty(5).catch((err) => {
+    console.error("⚠️ Doctor auto-seed failed:", err.message);
+  });
 
   if (process.env.NODE_ENV === "production") {
     startReminderScheduler();

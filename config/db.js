@@ -29,21 +29,33 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const isSupabase =
+const useSsl =
   process.env.DB_SSL === 'true' ||
-  (process.env.DB_HOST && process.env.DB_HOST.includes('supabase'));
+  (process.env.DB_HOST && process.env.DB_HOST.includes('supabase')) ||
+  (process.env.DB_HOST && process.env.DB_HOST.includes('render.com')) ||
+  (process.env.DATABASE_URL &&
+    (process.env.DATABASE_URL.includes('render.com') ||
+      process.env.DATABASE_URL.includes('supabase')));
 
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'medilink',
-  password: process.env.DB_PASSWORD || 'password',
-  port: Number(process.env.DB_PORT) || 5432,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-  ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {}),
-});
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+      ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+    })
+  : new Pool({
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      database: process.env.DB_NAME || 'medilink',
+      password: process.env.DB_PASSWORD || 'password',
+      port: Number(process.env.DB_PORT) || 5432,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+      ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+    });
 
 // Log connection (fires once per client)
 pool.on('connect', () => {

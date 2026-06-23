@@ -251,4 +251,19 @@ router.get("/analytics", protect, verifyAdmin, async (req, res) => {
   }
 });
 
+router.post("/seed-doctors", protect, verifyAdmin, async (req, res) => {
+  try {
+    const { seedDoctors } = require("../services/seedDoctors.service");
+    const result = await seedDoctors();
+    res.json({
+      success: true,
+      message: `Seeded ${result.created} doctors (${result.activeTotal} active total)`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Admin seed-doctors error:", error);
+    res.status(500).json({ success: false, error: "Failed to seed doctors" });
+  }
+});
+
 module.exports = router;
